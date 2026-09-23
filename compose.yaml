@@ -1,0 +1,91 @@
+name: news-tool
+x-app: &app
+  image: news-tool:local
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment: &env
+    DB_HOST: db
+    DB_PORT: 5432
+    POSTGRES_DB: ${POSTGRES_DB:-news_tool}
+    POSTGRES_USER: ${POSTGRES_USER:-news_tool}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    POLL_SECONDS: ${POLL_SECONDS:-3}
+    JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-120}
+    MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
+    RETRY_DELAY_SECONDS: ${RETRY_DELAY_SECONDS:-30}
+    REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-20}
+    MAX_RESPONSE_BYTES: ${MAX_RESPONSE_BYTES:-5242880}
+    MAX_ARTICLES_PER_JOB: ${MAX_ARTICLES_PER_JOB:-150}
+    RANK_KEYWORDS: ${RANK_KEYWORDS:-}
+    ALLOW_PRIVATE_SOURCES: ${ALLOW_PRIVATE_SOURCES:-false}
+    LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+    GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+    DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+    LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
+    LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-8192}
+    LLM_ALLOW_FAKE: ${LLM_ALLOW_FAKE:-false}
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 35s
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-news_tool}
+      POSTGRES_USER: ${POSTGRES_USER:-news_tool}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  web:
+    <<: *app
+    # Only explicitly allowlisted non-LLM-secret settings reach web.
+    env_file: []
+    environment:
+      <<: *env
+      GEMINI_API_KEY: ""
+      DEEPSEEK_API_KEY: ""
+    command: ["python", "-m", "app.start"]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+  worker:
+    <<: *app
+    env_file:
+      - path: script-api-lab/.env
+        required: false
+      - path: .env
+        required: false
+      - path: .env.credentials
+        required: false
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data:

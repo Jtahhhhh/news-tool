@@ -1,0 +1,21 @@
+{% extends 'base.html' %}{% from 'macros.html' import csrf %}
+{% block title %}Nguồn tin{% endblock %}
+{% block content %}
+<header><div class="section-label">01 / THU THẬP</div><h1>Nguồn tin</h1><p>Quản lý nguồn và lịch lấy tin. Yêu cầu được worker xử lý trong nền.</p></header>
+<section class="card p-4 mb-4"><h2>{{ 'Sửa nguồn #' ~ editing.id if editing else 'Thêm nguồn mới' }}</h2>
+<form method="post" action="/sources/save" class="row g-3">{{ csrf(request) }}
+{% if editing %}<input type="hidden" name="source_id" value="{{ editing.id }}">{% endif %}
+<div class="col-md-4"><label class="form-label" for="name">Tên nguồn</label><input id="name" class="form-control" name="name" required maxlength="200" value="{{ editing.name if editing else '' }}" placeholder="VnExpress – Tin mới"></div>
+<div class="col-md-8"><label class="form-label" for="url">URL RSS hoặc trang danh sách</label><input id="url" class="form-control" name="url" type="url" required maxlength="2048" value="{{ editing.url if editing else '' }}" placeholder="https://vnexpress.net/rss/tin-moi-nhat.rss"></div>
+<div class="col-md-3"><label class="form-label" for="kind">Loại nguồn</label><select id="kind" class="form-select" name="kind">{% for k in ['rss','html'] %}<option value="{{ k }}" {% if editing and editing.kind == k %}selected{% endif %}>{{ k|upper }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label class="form-label" for="adapter">Adapter HTML</label><select id="adapter" class="form-select" name="adapter">{% for a in adapters %}<option {% if editing and editing.adapter == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+<div class="col-md-3"><label class="form-label" for="topic">Chủ đề</label><input id="topic" class="form-control" name="topic" maxlength="100" value="{{ editing.topic if editing else '' }}" placeholder="Công nghệ"></div>
+<div class="col-md-3"><label class="form-label" for="interval">Chu kỳ (phút)</label><input id="interval" class="form-control" name="interval_minutes" type="number" min="1" max="10080" required value="{{ editing.interval_minutes if editing else 30 }}"></div>
+<div class="col-12 d-flex align-items-center gap-3"><label><input class="form-check-input" type="checkbox" name="enabled" value="true" {% if not editing or editing.enabled %}checked{% endif %}> Tự động lấy tin</label><button class="btn btn-primary">Lưu nguồn</button>{% if editing %}<a href="/sources">Hủy sửa</a>{% endif %}</div>
+</form></section>
+<section class="card table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Nguồn</th><th>Chủ đề</th><th>Lịch chạy</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+{% for s in sources %}<tr><td><strong>{{ s.name }}</strong><div class="small text-muted break-url">{{ s.url }}</div><span class="small">{{ s.kind|upper }} · #{{ s.id }}</span></td><td>{{ s.topic or '—' }}</td><td>{{ s.interval_minutes }} phút<div class="small text-muted">Kế tiếp: {{ s.next_run_at.strftime('%d/%m %H:%M') }}</div></td><td><span class="badge {{ 'text-bg-success' if s.enabled else 'text-bg-secondary' }}">{{ 'Đang bật' if s.enabled else 'Đã tắt lịch' }}</span></td><td><div class="actions"><a class="btn btn-sm btn-outline-secondary" href="/sources?edit={{ s.id }}">Sửa</a><form method="post" action="/sources/{{ s.id }}/toggle">{{ csrf(request) }}<button class="btn btn-sm btn-outline-secondary">{{ 'Tắt lịch' if s.enabled else 'Bật lịch' }}</button></form><form method="post" action="/sources/{{ s.id }}/collect">{{ csrf(request) }}<button class="btn btn-sm btn-primary">Lấy tin</button></form></div></td></tr>
+{% else %}<tr><td colspan="5" class="empty">Chưa có nguồn. Thêm URL RSS ở trên để bắt đầu.</td></tr>{% endfor %}
+</tbody></table></section>
+<p class="small text-muted mt-3">Tắt lịch không hủy job đã nhận; bạn vẫn có thể yêu cầu lấy tin thủ công.</p>
+{% endblock %}

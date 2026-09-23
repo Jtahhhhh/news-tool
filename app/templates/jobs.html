@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% from 'macros.html' import csrf, pagination %}
+{% block title %}Lịch sử chạy{% endblock %}
+{% block content %}
+<header><div class="section-label">05 / VẬN HÀNH</div><h1>Lịch sử chạy</h1><p>Trạng thái tự cập nhật mỗi 3 giây. <span id="poll-state" role="status">Đang theo dõi</span></p></header>
+<div id="jobs-live" aria-live="polite">
+{% for j in jobs %}<article class="card job-card" data-job-id="{{ j.id }}"><div class="event-top"><h2>#{{ j.id }} · {{ j.source.name if j.source else 'Gom nhóm & chấm điểm' }}</h2><span class="badge text-bg-light" data-field="status">{{ j.status }}</span></div>
+<div class="small text-muted">Tạo lúc {{ j.created_at.strftime('%d/%m/%Y %H:%M:%S') }} UTC · Lần thử <span data-field="attempts">{{ j.attempts }}</span>/{{ j.max_attempts }}</div>
+<p class="mt-2" data-field="progress">{{ j.progress }}</p><div class="job-counts"><span><b data-field="new_count">{{ j.new_count }}</b> mới</span><span><b data-field="duplicate_count">{{ j.duplicate_count }}</b> trùng</span><span><b data-field="error_count">{{ j.error_count }}</b> lỗi</span></div>
+<p class="error-detail mt-2" data-field="error">{{ j.error or '' }}</p><details><summary>Nhật ký các lần thử</summary><pre data-field="logs">{% for log in j.logs %}{{ log.at }} [{{ log.attempt }}] {{ log.message }}
+{% endfor %}</pre></details><form method="post" action="/jobs/{{ j.id }}/retry" data-retry {% if j.status != 'failed' %}hidden{% endif %}>{{ csrf(request) }}<button class="btn btn-sm btn-outline-secondary mt-2">Tạo lượt thử mới</button></form></article>
+{% else %}<div class="card empty">Chưa có lượt chạy. Yêu cầu lấy tin từ màn hình Nguồn tin.</div>{% endfor %}</div>
+{{ pagination(request, page, pages, total) }}
+{% endblock %}

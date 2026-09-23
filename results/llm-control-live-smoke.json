@@ -1,0 +1,64 @@
+[
+  {
+    "provider": "gemini",
+    "credential_id": 1,
+    "model": "gemini-3.8-flash",
+    "live_call": true,
+    "job": {
+      "id": 3,
+      "event_id": null,
+      "status": "failed",
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "attempts": 1,
+      "next_attempt_at": "2026-09-23T08:51:27.652202+00:00",
+      "created_at": "2026-09-23T08:51:27.652207+00:00",
+      "finished_at": "2026-09-23T08:51:40.352159+00:00",
+      "error_kind": "service_error",
+      "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+      "logs": [
+        {
+          "at": "2026-09-23T08:51:40.347572+00:00",
+          "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+          "usage": {},
+          "attempt": 1,
+          "elapsed": 8.665892643002735,
+          "request_id": null,
+          "http_status": 503,
+          "unknown_outcome": false
+        }
+      ],
+      "kind": "connection_test",
+      "cancelled": false,
+      "reserved_microusd": 0,
+      "reserved_output_tokens": 1024
+    },
+    "attempts": [
+      {
+        "id": 1,
+        "number": 1,
+        "credential_id": 1,
+        "provider": "gemini",
+        "model": "gemini-3.8-flash",
+        "quota_group": "gemini-default",
+        "status": "failed",
+        "reason": "Nhà cung cấp được chọn",
+        "http_status": 503,
+        "request_id": null,
+        "latency": 8.665892643002735,
+        "usage": {},
+        "error_kind": "service_error",
+        "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+        "reserved_microusd": 0,
+        "reserved_output_tokens": 1024,
+        "started_at": "2026-09-23T08:51:30.589040+00:00",
+        "finished_at": "2026-09-23T08:51:40.336468+00:00"
+      }
+    ]
+  },
+  {
+    "provider": "deepseek",
+    "live_call": false,
+    "reason": "Không có credential ready; không gửi request"
+  }
+]

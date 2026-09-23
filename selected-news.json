@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-09-22T14:58:24.893835+00:00",
+  "events": [
+    {
+      "id": 17,
+      "title": "91 ngành được cấp học bổng 3,7-8,4 triệu đồng/tháng",
+      "decision": "selected",
+      "score": 67.08,
+      "components": {
+        "quality": 15.0,
+        "coverage": 5,
+        "freshness": 33.75,
+        "relevance": 13.33
+      },
+      "reasons": [
+        "Bài mới nhất cách 8.2 giờ",
+        "1 nguồn độc lập theo cấu hình",
+        "Từ khóa khớp: công nghệ, khoa học",
+        "Chất lượng dựa trên ngày xuất bản, mô tả và URL"
+      ],
+      "articles": [
+        {
+          "id": 17,
+          "title": "91 ngành được cấp học bổng 3,7-8,4 triệu đồng/tháng",
+          "url": "https://vnexpress.net/danh-sach-91-nganh-cap-hoc-bong-3-7-8-4-trieu-dong-cap-nhat-moi-nhat-5123304.html",
+          "summary": "Sinh viên ở 91 ngành khoa học cơ bản, kỹ thuật then chốt, công nghệ chiến lược có cơ hội nhận học bổng 3,7 đến 8,4 triệu đồng mỗi tháng, theo Bộ Giáo dục và Đào tạo.",
+          "topic": "Tổng hợp",
+          "source": {
+            "id": 1,
+            "name": "VnExpress – Tin mới",
+            "url": "https://vnexpress.net/rss/tin-moi-nhat.rss"
+          },
+          "published_at": "2026-09-22T06:48:10+00:00",
+          "collected_at": "2026-09-22T14:57:08.687239+00:00"
+        }
+      ]
+    }
+  ]
+}

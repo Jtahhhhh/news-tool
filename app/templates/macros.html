@@ -1,0 +1,22 @@
+{% macro csrf(request) -%}
+<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+{%- endmacro %}
+
+{% macro filter_form(request, topics, sources=none, decisions=false) %}
+<form class="card filter-bar" method="get">
+  <div><label for="q">Từ khóa</label><input id="q" class="form-control" name="q" placeholder="Tìm trong tiêu đề, mô tả…" value="{{ request.query_params.get('q','') }}"></div>
+  <div><label for="topic">Chủ đề</label><select id="topic" name="topic" class="form-select"><option value="">Tất cả</option>{% for t in topics if t %}<option {% if request.query_params.get('topic') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div><label for="since">Từ ngày (UTC)</label><input id="since" class="form-control" type="date" name="since" value="{{ request.query_params.get('since','') }}"></div>
+  <div><label for="until">Đến ngày (UTC)</label><input id="until" class="form-control" type="date" name="until" value="{{ request.query_params.get('until','') }}"></div>
+  {% if sources is not none %}<div><label for="source_id">Nguồn</label><select id="source_id" class="form-select" name="source_id"><option value="">Tất cả</option>{% for s in sources %}<option value="{{ s.id }}" {% if request.query_params.get('source_id') == s.id|string %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>{% endif %}
+  {% if decisions %}<div><label for="decision">Trạng thái</label><select id="decision" name="decision" class="form-select">{% for v,l in [('pending','Chờ duyệt'),('selected','Đã chọn'),('skipped','Đã bỏ qua'),('','Tất cả')] %}<option value="{{ v }}" {% if request.query_params.get('decision','pending') == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>{% endif %}
+  <button class="btn btn-dark">Lọc tin</button><a href="{{ request.url.path }}" class="small">Xóa bộ lọc</a>
+</form>
+{% endmacro %}
+
+{% macro pagination(request, page, pages, total) %}
+<div class="pagination-bar"><span>{{ total }} kết quả · Trang {{ page }}/{{ pages }}</span><div>
+{% if page > 1 %}<a class="btn btn-sm btn-outline-secondary" href="{{ request.url.include_query_params(page=page-1) }}">← Trước</a>{% endif %}
+{% if page < pages %}<a class="btn btn-sm btn-outline-secondary" href="{{ request.url.include_query_params(page=page+1) }}">Tiếp →</a>{% endif %}
+</div></div>
+{% endmacro %}

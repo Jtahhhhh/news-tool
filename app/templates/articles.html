@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% from 'macros.html' import filter_form, pagination %}
+{% block title %}Tin đã lấy{% endblock %}
+{% block content %}
+<header><div class="section-label">02 / THƯ VIỆN</div><h1>Tin đã lấy</h1><p>Tìm kiếm bài viết và truy về nguồn gốc.</p></header>
+{{ filter_form(request, topics, sources) }}
+{% for a in articles %}<article class="card article-card"><div class="article-meta">{{ a.source.name }} <span>· {{ a.topic or 'Chưa phân loại' }} · {{ a.published_at.strftime('%d/%m/%Y %H:%M') if a.published_at else 'Không có ngày xuất bản' }}</span></div><h2><a href="{{ a.canonical_url }}" target="_blank" rel="noopener noreferrer">{{ a.title }} ↗</a></h2><p>{{ a.summary }}</p><div class="small text-muted">Bài #{{ a.id }} · Nhóm #{{ a.event_id or '—' }} · Lấy lúc {{ a.collected_at.strftime('%d/%m/%Y %H:%M') }} UTC</div></article>
+{% else %}<div class="card empty">Chưa có tin phù hợp. Thêm nguồn và yêu cầu lấy tin tại <a href="/sources">Nguồn tin</a>.</div>{% endfor %}
+{{ pagination(request, page, pages, total) }}
+{% endblock %}

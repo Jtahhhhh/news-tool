@@ -1,0 +1,282 @@
+{
+  "at": "2026-09-23T11:47:40.998411+00:00",
+  "live_call": true,
+  "job": {
+    "id": 1,
+    "event_id": 1,
+    "status": "succeeded",
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "attempts": 3,
+    "next_attempt_at": "2026-09-23T11:47:31.863303+00:00",
+    "created_at": "2026-09-23T11:46:37.261084+00:00",
+    "finished_at": "2026-09-23T11:47:40.974273+00:00",
+    "retry_started_at": "2026-09-23T11:46:37.415696+00:00",
+    "error_kind": null,
+    "error": null,
+    "logs": [
+      {
+        "at": "2026-09-23T11:46:41.433973+00:00",
+        "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+        "usage": {},
+        "attempt": 1,
+        "elapsed": 3.9564245650000203,
+        "request_id": null,
+        "http_status": 503,
+        "unknown_outcome": false
+      },
+      {
+        "at": "2026-09-23T11:47:00.358719+00:00",
+        "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+        "usage": {},
+        "attempt": 2,
+        "elapsed": 2.846338136999975,
+        "request_id": null,
+        "http_status": 503,
+        "unknown_outcome": false
+      },
+      {
+        "at": "2026-09-23T11:47:40.969408+00:00",
+        "usage": {
+          "serviceTier": "standard",
+          "totalTokenCount": 2387,
+          "promptTokenCount": 493,
+          "thoughtsTokenCount": 1445,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 493
+            }
+          ],
+          "candidatesTokenCount": 449
+        },
+        "result": "response",
+        "attempt": 3,
+        "elapsed": 8.54138231799999,
+        "request_id": null
+      }
+    ],
+    "kind": "script",
+    "cancelled": false,
+    "reserved_microusd": 0,
+    "reserved_output_tokens": 24576
+  },
+  "attempts": [
+    {
+      "id": 1,
+      "number": 1,
+      "credential_id": 1,
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "quota_group": "gemini-default",
+      "status": "failed",
+      "reason": "Nhà cung cấp được chọn",
+      "http_status": 503,
+      "request_id": null,
+      "latency": 3.9564245650000203,
+      "usage": {},
+      "error_kind": "service_error",
+      "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+      "trace": {
+        "model": "gemini-3.8-flash",
+        "headers": {
+          "date": "Wed, 23 Sep 2026 11:46:41 GMT",
+          "server-timing": "gfet4t7; dur=3696"
+        },
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "provider": "gemini",
+        "retryable": true,
+        "config_hash": "e2a289c1f8331ded1d79576ee701dbd687a34339a0d8b92a7231381a8cc31403",
+        "http_status": 503,
+        "prompt_hash": "5b08e25ba5bb3932d807bc5458ce8599a1b13764fbdcd6c08e1fa57704748b48",
+        "retry_after": null,
+        "schema_hash": "c6c608021ca31a49dc437a4dc897339ea6d84bc8688a7594438710d34b4a9d9a",
+        "payload_hash": "cb3acf7e2847a7aa7742bad1672f8ae7789c8f771c1cd4110e7812e5b3f5decb",
+        "retry_reason": "service_error",
+        "provider_code": "UNAVAILABLE",
+        "snapshot_hash": "78da254e7209f35b77c4b7df14856af3c9836c21e93f69373c52813849b78690",
+        "next_attempt_at": "2026-09-23T11:46:57.357052+00:00",
+        "retry_scheduled": true,
+        "usage_available": false,
+        "field_violations": [],
+        "retry_after_seconds": null,
+        "quota_classification": null
+      },
+      "reserved_microusd": 0,
+      "reserved_output_tokens": 8192,
+      "started_at": "2026-09-23T11:46:37.418322+00:00",
+      "finished_at": "2026-09-23T11:46:41.417739+00:00"
+    },
+    {
+      "id": 2,
+      "number": 2,
+      "credential_id": 1,
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "quota_group": "gemini-default",
+      "status": "failed",
+      "reason": "Nhà cung cấp được chọn",
+      "http_status": 503,
+      "request_id": null,
+      "latency": 2.846338136999975,
+      "usage": {},
+      "error_kind": "service_error",
+      "error": "HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n",
+      "trace": {
+        "model": "gemini-3.8-flash",
+        "headers": {
+          "date": "Wed, 23 Sep 2026 11:47:00 GMT",
+          "server-timing": "gfet4t7; dur=2637"
+        },
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "provider": "gemini",
+        "retryable": true,
+        "config_hash": "e2a289c1f8331ded1d79576ee701dbd687a34339a0d8b92a7231381a8cc31403",
+        "http_status": 503,
+        "prompt_hash": "5b08e25ba5bb3932d807bc5458ce8599a1b13764fbdcd6c08e1fa57704748b48",
+        "retry_after": null,
+        "schema_hash": "c6c608021ca31a49dc437a4dc897339ea6d84bc8688a7594438710d34b4a9d9a",
+        "payload_hash": "cb3acf7e2847a7aa7742bad1672f8ae7789c8f771c1cd4110e7812e5b3f5decb",
+        "retry_reason": "service_error",
+        "provider_code": "UNAVAILABLE",
+        "snapshot_hash": "78da254e7209f35b77c4b7df14856af3c9836c21e93f69373c52813849b78690",
+        "next_attempt_at": "2026-09-23T11:47:31.863303+00:00",
+        "retry_scheduled": true,
+        "usage_available": false,
+        "field_violations": [],
+        "retry_after_seconds": null,
+        "quota_classification": null
+      },
+      "reserved_microusd": 0,
+      "reserved_output_tokens": 8192,
+      "started_at": "2026-09-23T11:46:57.483291+00:00",
+      "finished_at": "2026-09-23T11:47:00.352754+00:00"
+    },
+    {
+      "id": 3,
+      "number": 3,
+      "credential_id": 1,
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "quota_group": "gemini-default",
+      "status": "response",
+      "reason": "Nhà cung cấp được chọn",
+      "http_status": 200,
+      "request_id": null,
+      "latency": 8.54138231799999,
+      "usage": {
+        "serviceTier": "standard",
+        "totalTokenCount": 2387,
+        "promptTokenCount": 493,
+        "thoughtsTokenCount": 1445,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 493
+          }
+        ],
+        "candidatesTokenCount": 449
+      },
+      "error_kind": null,
+      "error": null,
+      "trace": {
+        "model": "gemini-3.8-flash",
+        "headers": {
+          "date": "Wed, 23 Sep 2026 11:47:41 GMT",
+          "server-timing": "gfet4t7; dur=8408"
+        },
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "provider": "gemini",
+        "retryable": false,
+        "config_hash": "e2a289c1f8331ded1d79576ee701dbd687a34339a0d8b92a7231381a8cc31403",
+        "http_status": 200,
+        "prompt_hash": "5b08e25ba5bb3932d807bc5458ce8599a1b13764fbdcd6c08e1fa57704748b48",
+        "retry_after": null,
+        "schema_hash": "c6c608021ca31a49dc437a4dc897339ea6d84bc8688a7594438710d34b4a9d9a",
+        "payload_hash": "cb3acf7e2847a7aa7742bad1672f8ae7789c8f771c1cd4110e7812e5b3f5decb",
+        "snapshot_hash": "78da254e7209f35b77c4b7df14856af3c9836c21e93f69373c52813849b78690",
+        "usage_available": true,
+        "retry_after_seconds": null
+      },
+      "reserved_microusd": 0,
+      "reserved_output_tokens": 8192,
+      "started_at": "2026-09-23T11:47:32.399905+00:00",
+      "finished_at": "2026-09-23T11:47:40.960765+00:00"
+    }
+  ],
+  "structural_pass": true,
+  "review_status": "needs_review",
+  "output": {
+    "hook": "Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi.",
+    "title": "Thư viện thành phố mở thêm phòng đọc 120 chỗ ngồi",
+    "claims": [
+      {
+        "text": "Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi.",
+        "claim_id": "claim-1",
+        "evidence": [
+          {
+            "quote": "Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi.",
+            "source_id": "article-1"
+          }
+        ]
+      },
+      {
+        "text": "Đại diện thư viện cho biết khu vực mới phục vụ bạn đọc vào các ngày trong tuần.",
+        "claim_id": "claim-2",
+        "evidence": [
+          {
+            "quote": "Đại diện thư viện cho biết khu vực mới phục vụ bạn đọc vào các ngày trong tuần.",
+            "source_id": "article-1"
+          }
+        ]
+      }
+    ],
+    "reason": "Đủ dữ liệu tối thiểu để tạo bản nháp 15 giây dựa trên thông tin thư viện mở phòng đọc mới.",
+    "scenes": [
+      {
+        "seconds": 7,
+        "scene_id": 1,
+        "claim_ids": [
+          "claim-1"
+        ],
+        "narration": "Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi.",
+        "visual_brief": "Hình ảnh đồ họa minh họa không gian phòng đọc thư viện với bàn ghế và kệ sách.",
+        "on_screen_text": "Thư viện mở thêm phòng đọc 120 chỗ ngồi"
+      },
+      {
+        "seconds": 8,
+        "scene_id": 2,
+        "claim_ids": [
+          "claim-2"
+        ],
+        "narration": "Theo đại diện thư viện, khu vực mới này phục vụ bạn đọc vào các ngày trong tuần.",
+        "visual_brief": "Hình ảnh đồ họa minh họa lịch mở cửa từ thứ Hai đến thứ Sáu của thư viện.",
+        "on_screen_text": "Phục vụ bạn đọc các ngày trong tuần"
+      }
+    ],
+    "caption": "Thư viện thành phố mở thêm phòng đọc 120 chỗ ngồi, phục vụ bạn đọc vào các ngày trong tuần theo thông tin từ đại diện thư viện.",
+    "decision": "draft",
+    "story_id": "1",
+    "warnings": [
+      "Nguồn có đoạn ghi chú giả lập kiểm tra API, cần biên tập viên kiểm tra tính xác thực trước khi xuất bản."
+    ],
+    "schema_version": "1.0"
+  },
+  "source_snapshot": {
+    "tone": "neutral",
+    "sources": [
+      {
+        "url": "https://example.com/api-smoke",
+        "text": "Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi. Đại diện thư viện cho biết khu vực mới phục vụ bạn đọc vào các ngày trong tuần. Đây là nguồn giả lập để kiểm tra API, không phải tin thật để xuất bản.",
+        "title": "[SMOKE] Thư viện mở phòng đọc",
+        "source_id": "article-1",
+        "published_at": null
+      }
+    ],
+    "language": "vi",
+    "story_id": "1",
+    "schema_version": "1.0",
+    "target_seconds": 15
+  },
+  "cost": "unknown; verify provider dashboard"
+}

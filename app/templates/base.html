@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}News Tool{% endblock %} · News Tool</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+  <script src="/static/scripts.js?v=0004" defer></script>
+  <script src="/static/llm-control.js?v=0004" defer></script>
+  <link rel="stylesheet" href="/static/scripts.css">
+  <meta name="csrf-token" content="{{ request.state.csrf_token }}">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark"><div class="container-fluid shell">
+  <a class="navbar-brand fw-bold" href="/selection">NEWS<span class="brand-dot">●</span>TOOL</a>
+  <span class="text-light small">Bàn biên tập tin tức</span>
+</div></nav>
+<div class="shell layout">
+  <aside><p class="section-label">KHÔNG GIAN LÀM VIỆC</p>
+    {% for url, label in [('/sources','Nguồn tin'),('/articles','Tin đã lấy'),('/selection','Chọn tin'),('/selected','Tin đã chọn'),('/scripts','Kịch bản'),('/llm','Cấu hình LLM'),('/jobs','Lịch sử chạy')] %}
+    <a class="nav-item {% if request.url.path == url %}active{% endif %}" href="{{ url }}">{{ label }}</a>
+    {% endfor %}
+    <div class="sidebar-note">RSS → Sự kiện → Duyệt tin<br><span>Thời gian hiển thị theo UTC.</span></div>
+  </aside>
+  <main>{% block content %}{% endblock %}</main>
+</div>
+</body></html>

@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Tạo kịch bản{% endblock %}
+{% block content %}<header class="page-heading"><div><div class="section-label">TỪ TIN ĐÃ CHỌN</div><h1>Tạo kịch bản</h1><p>API chỉ được gọi sau khi bạn gửi yêu cầu. Kết quả luôn cần được kiểm tra.</p></div></header>
+<form id="script-create" class="card p-4 script-form" data-endpoint="/script-jobs">
+<label>Nhóm tin đã chọn<select class="form-select" name="event_id" required><option value="">Chọn nhóm tin</option>{% for e in events %}<option value="{{ e.id }}" {% if e.id==event_id %}selected{% endif %}>#{{ e.id }} — {{ e.title }}</option>{% endfor %}</select></label>
+{% include 'scripts/options.html' %}
+<p class="small text-muted">Tối đa 5 bài nguồn được chụp lại. RSS có thể chỉ chứa tóm tắt; nguồn quá ngắn sẽ không được gửi API. Thời lượng là dự kiến, cần đo bằng audio khi nối TTS.</p>
+<button class="btn btn-primary" {% if not events %}disabled{% endif %}>Tạo bản nháp</button><div class="script-message" role="status" aria-live="polite"></div></form>
+{% if not events %}<p class="mt-3">Bạn chưa chọn tin. <a href="/selection">Đến trang chọn tin →</a></p>{% endif %}{% endblock %}

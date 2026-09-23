@@ -1,0 +1,7 @@
+{% set chosen_provider = current.provider if current else (jobs[0].provider if jobs else settings.llm_provider) %}
+<p class="small text-muted">Nếu quản trị bật fallback, cùng nguồn có thể được gửi sang provider tiếp theo đã cho phép khi gặp lỗi dịch vụ hoặc quota. <a href="/llm">Xem cấu hình LLM</a>.</p>
+<div class="script-options">
+<label>Nhà cung cấp<select class="form-select" name="provider"><option value="gemini" {% if chosen_provider=='gemini' %}selected{% endif %}>Gemini · {{ settings.gemini_model }}</option><option value="deepseek" {% if chosen_provider=='deepseek' %}selected{% endif %}>DeepSeek · {{ settings.deepseek_model }}</option>{% if settings.llm_allow_fake %}<option value="fake" {% if chosen_provider=='fake' %}selected{% endif %}>Giả lập — chỉ kiểm thử</option>{% endif %}</select></label>
+<label>Giọng điệu<select class="form-select" name="tone"><option value="neutral">Trung lập</option><option value="conversational" {% if snapshot and snapshot.payload.tone=='conversational' %}selected{% endif %}>Gần gũi</option></select></label>
+<label>Thời lượng dự kiến (giây)<input class="form-control" type="number" name="target_seconds" min="15" max="90" value="{{ snapshot.payload.target_seconds if snapshot else 45 }}" required></label></div>
+<label>Nhận xét cho bản mới<textarea class="form-control" name="feedback" maxlength="4000" rows="2" placeholder="Ví dụ: lời đọc ngắn gọn, giữ nguyên các số liệu đã có nguồn"></textarea></label>
