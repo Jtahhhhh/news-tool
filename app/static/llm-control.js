@@ -1,5 +1,14 @@
 (() => {
   const token=document.querySelector('meta[name="csrf-token"]')?.content;
+  function requestId(){
+    // randomUUID is unavailable on HTTP LAN origins. Never let that prevent form binding.
+    if(globalThis.crypto?.randomUUID)return globalThis.crypto.randomUUID();
+    if(globalThis.crypto?.getRandomValues){
+      const bytes=globalThis.crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+    }
+    return 'request-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);
+  }
   async function send(path,data){
     const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json','x-csrf-token':token},body:JSON.stringify(data)});
     const result=await response.json();
@@ -8,7 +17,7 @@
   }
   function handle(form,build,destination){
     if(!form)return;
-    const key=crypto.randomUUID();
+    const key=requestId();
     form.addEventListener('submit',async event=>{
       event.preventDefault();const button=event.submitter;button.disabled=true;
       try{const [path,data]=build(new FormData(form),key);const result=await send(path,data);destination?location.assign(destination(result)):location.reload();}
