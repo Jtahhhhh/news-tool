@@ -18,6 +18,9 @@ class ScriptSourceSnapshot(Base):
 class ScriptJob(Base):
     __tablename__ = 'script_jobs'
     id: Mapped[int] = mapped_column(primary_key=True)
+    source_fetch_pending: Mapped[bool] = mapped_column(default=False, server_default=text('false'))
+    source_details: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+    repair_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
     schema_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     prepared_requests: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     retry_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 _resolved = set()
-ENV_NAME = re.compile(r'(?:GEMINI_API_KEY|DEEPSEEK_API_KEY|LLM_KEY_[A-Z0-9_]{1,100})\Z')
+ENV_NAME = re.compile(r'(?:GEMINI_API_KEY|DEEPSEEK_API_KEY|GROQ_API_KEY|LLM_KEY_[A-Z0-9_]{1,100})\Z')
 FILE_NAME = re.compile(r'llm_[a-zA-Z0-9_-]{1,100}\Z')
 
 
@@ -19,7 +19,7 @@ def resolve(reference):
     kind, name = reference.split(':', 1)
     if kind == 'env':
         value = os.getenv(name, '')
-        if not value and name in ('GEMINI_API_KEY', 'DEEPSEEK_API_KEY'):
+        if not value and name in ('GEMINI_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY'):
             from app.config import get_settings
             value = getattr(get_settings(), name.lower())
     else:
@@ -43,7 +43,7 @@ def mask(value):
 def redact_secrets(value):
     from app.config import get_settings
     settings = get_settings()
-    candidates = _resolved | {v for k, v in os.environ.items() if ENV_NAME.fullmatch(k)} | {settings.gemini_api_key, settings.deepseek_api_key}
+    candidates = _resolved | {v for k, v in os.environ.items() if ENV_NAME.fullmatch(k)} | {settings.gemini_api_key, settings.deepseek_api_key, settings.groq_api_key}
     text = str(value)
     for secret in sorted((x for x in candidates if x), key=len, reverse=True):
         text = text.replace(secret, '[REDACTED]')

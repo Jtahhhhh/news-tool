@@ -17,15 +17,15 @@ from app.llm.secrets import resolve, mask, redact_secrets
 
 class Route(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    provider: Literal['gemini', 'deepseek']
-    model: str = Field(min_length=1, max_length=200, pattern=r'^[a-zA-Z0-9._-]+$')
+    provider: Literal['gemini', 'deepseek', 'groq']
+    model: str = Field(min_length=1, max_length=200, pattern=r'^[a-zA-Z0-9._/-]+$')
     reservation_microusd: int = Field(default=0, ge=0, le=100000000)
 
 
 class Policy(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    routes: list[Route] = Field(min_length=1, max_length=2)
-    allowed_providers: list[Literal['gemini', 'deepseek']] = Field(default_factory=lambda:['gemini','deepseek'])
+    routes: list[Route] = Field(min_length=1, max_length=3)
+    allowed_providers: list[Literal['gemini', 'deepseek', 'groq']] = Field(default_factory=lambda:['gemini','deepseek','groq'])
     fallback_enabled: bool = False
     fallback_on: list[Literal['service_error','quota']] = Field(default_factory=lambda:['service_error','quota'])
     max_attempts: int = Field(default=6, ge=1, le=6)
@@ -55,9 +55,15 @@ def control_lock(session):
 
 def default_policy():
     s=get_settings()
-    names=[s.llm_provider] if s.llm_provider in ('gemini','deepseek') else ['gemini']
-    names += [name for name in ('gemini','deepseek') if name not in names]
-    return Policy(routes=[Route(provider=n,model=getattr(s,f'{n}_model')) for n in names]).model_dump()
+    names=[s.llm_provider] if s.llm_provider in ('gemini','deepseek','groq') else ['gemini']
+    fallback=s.llm_fallback_provider
+    if fallback and (fallback not in ('gemini','deepseek','groq') or fallback==names[0]):
+        raise ValueError('LLM_FALLBACK_PROVIDER phải là provider khác hợp lệ')
+    if fallback:names.append(fallback)
+    names += [name for name in ('gemini','deepseek','groq') if name not in names]
+    return Policy(routes=[Route(provider=n,model=getattr(s,f'{n}_model')) for n in names],
+                  allowed_providers=names[:2] if fallback else names, fallback_enabled=bool(fallback),
+                  fallback_on=['service_error'] if fallback else ['service_error','quota']).model_dump()
 
 
 def get_policy(session):
@@ -70,10 +76,10 @@ def get_policy(session):
 
 def seed_credentials(session):
     control_lock(session)
-    if session.scalar(select(LLMCredential.id).limit(1)):
-        return
     s=get_settings()
-    for provider in ('gemini','deepseek'):
+    existing=set(session.scalars(select(LLMCredential.provider)))
+    for provider in ('gemini','deepseek','groq'):
+        if provider in existing:continue
         session.add(LLMCredential(name=f'{provider} mặc định',provider=provider,project_id='chưa-khai-báo',
                     secret_ref=f'env:{provider.upper()}_API_KEY',quota_group=f'{provider}-default',
                     allowed_models=[getattr(s,f'{provider}_model')]))

@@ -22,7 +22,7 @@ class LLMCredential(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    __table_args__ = (CheckConstraint("provider IN ('gemini','deepseek')"),)
+    __table_args__ = (CheckConstraint("provider IN ('gemini','deepseek','groq')"),)
 
 
 class LLMQuotaState(Base):

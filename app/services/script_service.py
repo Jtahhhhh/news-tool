@@ -30,7 +30,7 @@ def digest(value):
 class CreateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     event_id: int = Field(gt=0)
-    provider: Literal['gemini', 'deepseek', 'fake'] | None = None
+    provider: Literal['gemini', 'deepseek', 'groq', 'fake'] | None = None
     tone: Literal['neutral', 'conversational'] = 'neutral'
     target_seconds: int = Field(default=45, ge=15, le=90)
     idempotency_key: str = Field(min_length=8, max_length=128)
@@ -70,7 +70,7 @@ def enqueue_script(session, request: CreateRequest):
         raise HTTPException(409, f'Nhóm tin đang có yêu cầu #{active.id}; hãy theo dõi yêu cầu hiện tại')
     settings = get_settings()
     provider = request.provider or control.get_policy(session)['routes'][0]['provider']
-    if provider not in ('gemini', 'deepseek') and not (provider == 'fake' and settings.llm_allow_fake):
+    if provider not in ('gemini', 'deepseek', 'groq') and not (provider == 'fake' and settings.llm_allow_fake):
         raise HTTPException(422, 'Nhà cung cấp chưa được bật')
     latest = latest_version(session, event.id)
     if request.base_version_id is not None and (not latest or latest.id != request.base_version_id):

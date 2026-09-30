@@ -4,6 +4,7 @@ from importlib import import_module
 PROVIDERS = {
     'gemini': ('.gemini', 'GeminiProvider'),
     'deepseek': ('.deepseek', 'DeepSeekProvider'),
+    'groq': ('.groq_provider', 'GroqProvider'),
 }
 
 

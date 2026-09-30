@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = Field(default=60, ge=1, le=300)
     llm_max_output_tokens: int = Field(default=8192, ge=256, le=32768)
     llm_allow_fake: bool = False
+    groq_model: str = 'openai/gpt-oss-120b'
+    groq_api_key: str = ''
+    llm_fallback_provider: str = ''
+    llm_max_concurrency: int = Field(default=2, ge=1, le=20)
+    llm_fetch_article: bool = True
+    article_fetch_timeout_seconds: int = Field(default=3, ge=1, le=10)
+    worker_role: str = 'combined'
 
     @property
     def db_url(self):

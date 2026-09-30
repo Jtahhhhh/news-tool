@@ -14,7 +14,7 @@ def classify(provider, status, body):
                 reasons.add(str(detail.get('reason', '')))
             if str(detail.get('@type', '')).endswith('google.rpc.QuotaFailure'):
                 quotas += [str(v.get('quotaId', '')) for v in detail.get('violations', []) if isinstance(v, dict)]
-    if reasons & {'API_KEY_INVALID', 'API_KEY_EXPIRED', 'invalid_api_key', 'authentication_error'} or (provider == 'deepseek' and status == 401):
+    if reasons & {'API_KEY_INVALID', 'API_KEY_EXPIRED', 'invalid_api_key', 'authentication_error'} or (provider in ('deepseek','groq') and status == 401):
         return 'invalid_key'
     if status == 429 and any('perday' in q.lower().replace('_', '') for q in quotas):
         return 'daily_quota'

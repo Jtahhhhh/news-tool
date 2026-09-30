@@ -16,7 +16,7 @@ router=APIRouter()
 class CredentialInput(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
     name:str=Field(min_length=1,max_length=100)
-    provider:Literal['gemini','deepseek']
+    provider:Literal['gemini','deepseek','groq']
     project_id:str=Field(min_length=1,max_length=200)
     secret_ref:str=Field(min_length=1,max_length=200)
     quota_group:str=Field(min_length=1,max_length=200)
@@ -27,8 +27,8 @@ class CredentialInput(BaseModel):
     def references(self):
         import re
         if not valid_reference(self.secret_ref):
-            raise ValueError('Chỉ nhận env:GEMINI_API_KEY, env:DEEPSEEK_API_KEY, env:LLM_KEY_TEN hoặc secret:llm_ten; không nhập key')
-        if any(not re.fullmatch(r'[a-zA-Z0-9._-]{1,200}',m) for m in self.allowed_models):
+            raise ValueError('Chỉ nhận env:GROQ_API_KEY, env:GEMINI_API_KEY, env:DEEPSEEK_API_KEY, env:LLM_KEY_TEN hoặc secret:llm_ten; không nhập key')
+        if any(not re.fullmatch(r'[a-zA-Z0-9._/-]{1,200}',m) for m in self.allowed_models):
             raise ValueError('Tên model không hợp lệ')
         return self
 
