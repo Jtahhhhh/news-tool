@@ -25,7 +25,7 @@ def test_gemini_payload_preserves_business_schema():
     assert 'synthetic-key' not in json.dumps(payload)
 
 
-def test_five_503_then_sixth_success_immutable_payload_and_one_send(db, lab, monkeypatch):
+def test_two_503_then_third_success_immutable_payload_and_one_send(db, lab, monkeypatch):
     job_id = lab['enqueue']()
     with db() as session:
         job = session.get(ScriptJob, job_id)
@@ -36,7 +36,7 @@ def test_five_503_then_sixth_success_immutable_payload_and_one_send(db, lab, mon
     sends = []
     def handler(request):
         sends.append(json.loads(request.content))
-        if len(sends) <= 5:
+        if len(sends) <= 2:
             return httpx.Response(503, json={'error': {'status':'UNAVAILABLE','message':'temporary'}},
                 headers={'retry-after':'16','x-request-id':f'r{len(sends)}','authorization':'Bearer forbidden'})
         return httpx.Response(200, json={'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':raw}]}}],
@@ -44,22 +44,22 @@ def test_five_503_then_sixth_success_immutable_payload_and_one_send(db, lab, mon
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         monkeypatch.setattr('app.services.script_service.get_provider',
             lambda name,model,timeout,limit: GeminiProvider(model,timeout=timeout,output_limit=limit,client=client))
-        for i in range(6):
+        for i in range(3):
             with db() as session:
                 h=session.scalar(select(LLMProviderHealth))
                 if h and h.state=='open':h.next_attempt_at=utcnow()-timedelta(seconds=1)
             execute(db,job_id)
             with db() as session:
                 job=session.get(ScriptJob,job_id)
-                if i<5:
+                if i<2:
                     assert job.status=='retry_wait'
                     delay=(job.next_attempt_at-utcnow()).total_seconds()
-                    assert delay>=min(119,15*2**i)-1 and delay<=121
-        assert len(sends)==6
+                    assert 15<=delay<=17  # Retry-After overrides shorter jitter.
+        assert len(sends)==3
         assert len({payload_hash(p) for p in sends})==1
     with db() as session:
         job=session.get(ScriptJob,job_id)
-        assert job.status=='succeeded' and job.attempts==6 and job.prepared_requests==frozen
+        assert job.status=='succeeded' and job.attempts==3 and job.prepared_requests==frozen
         assert session.scalar(select(ScriptVersion)).status=='needs_review'
         attempts=session.scalars(select(LLMAttempt).order_by(LLMAttempt.number)).all()
         assert len({a.trace['payload_hash'] for a in attempts})==1

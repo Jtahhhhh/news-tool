@@ -158,15 +158,19 @@ def test_key_and_permission_errors_no_loop(db,lab,monkeypatch,kind,status,disabl
 
 def test_fallback_order_snapshot_and_total_attempt_limit(db,lab,monkeypatch):
     update_policy(db,fallback_enabled=True,max_attempts=4)
-    calls=adapter(monkeypatch,[ProviderFailure('busy',status=503),None])
-    job_id=lab['enqueue']();execute(db,job_id);execute(db,job_id)
-    assert [c['model'] for c in calls]==[lab['gm'],lab['dm']]
+    calls=adapter(monkeypatch,[ProviderFailure('busy',status=503)]*3+[None])
+    job_id=lab['enqueue']()
+    for _ in range(4):execute(db,job_id)
+    assert [c['model'] for c in calls]==[lab['gm']]*3+[lab['dm']]
     assert calls[0]['sources']==calls[1]['sources'] and calls[0]['prompt']==calls[1]['prompt']
     with db() as session:
         attempts=session.scalars(select(LLMAttempt).order_by(LLMAttempt.id)).all()
-        assert [a.provider for a in attempts]==['gemini','deepseek']
+        assert [a.provider for a in attempts]==['gemini']*3+['deepseek']
         version=session.scalar(select(ScriptVersion));assert version.provider=='deepseek' and version.status=='needs_review'
     calls=adapter(monkeypatch,[ProviderFailure('busy',status=503)]*4)
+    with db() as session:
+        h=session.scalar(select(LLMProviderHealth).where(LLMProviderHealth.provider=='gemini'))
+        h.state='closed';h.failures=0;h.next_attempt_at=None
     another=lab['enqueue']()
     for _ in range(4):execute(db,another)
     with db() as session:
@@ -198,9 +202,13 @@ def test_fallback_revocation_budget_and_retry_count_not_reset(db,lab,monkeypatch
     assert client.post(f'/llm/jobs/{job_id}/retry',json={}).status_code==200
     execute(db,job_id);assert len(calls)==1
     update_policy(db,max_output_tokens_total=32768)
-    another=lab['enqueue']();calls=adapter(monkeypatch,[ProviderFailure('busy',status=503)])
-    execute(db,another);update_policy(db,fallback_enabled=False);execute(db,another)
-    assert len(calls)==1
+    with db() as session:
+        h=session.scalar(select(LLMProviderHealth).where(LLMProviderHealth.provider=='gemini'))
+        h.state='closed';h.failures=0;h.next_attempt_at=None
+    another=lab['enqueue']();calls=adapter(monkeypatch,[ProviderFailure('busy',status=503)]*3)
+    for _ in range(3):execute(db,another)
+    update_policy(db,fallback_enabled=False);execute(db,another)
+    assert len(calls)==3
     with db() as session:assert session.get(ScriptJob,another).error_kind=='configuration_error'
 
 

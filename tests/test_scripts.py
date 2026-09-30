@@ -29,7 +29,7 @@ def test_validator_quote_reference_duration_hook_and_refusal():
     for mutate in [lambda p:p['claims'][0]['evidence'][0].update(quote='giá 999 triệu đồng'),
                    lambda p:p['claims'][0]['evidence'][0].update(source_id='missing'),
                    lambda p:p['scenes'][0].update(claim_ids=['missing']),
-                   lambda p:p['scenes'][0].update(seconds=10),
+                   lambda p:p['scenes'][0].update(seconds=90),
                    lambda p:p.update(hook='Không khớp'),
                    lambda p:p.update(decision='insufficient_evidence')]:
         wrong = copy.deepcopy(output); mutate(wrong)
@@ -125,7 +125,7 @@ def test_double_create_concurrent_and_fake_full_review(db,client,selected_event)
     assert '\\u003cscript\\u003e' in html
     assert client.get('/scripts').status_code==200
     assert client.get('/scripts/new').status_code==200
-    edited=copy.deepcopy(first['data']);edited['hook']='Bản đã chỉnh sửa theo nguồn'
+    edited=copy.deepcopy(first['data']);edited['hook']='Thư viện thành phố mở thêm phòng đọc với 120 chỗ ngồi.'
     response=client.post(f'/scripts/{selected_event}/versions',json={'base_version_id':first['id'],'data':edited})
     assert response.status_code==201,response.text
     second=response.json();assert second['data']['scenes'][0]['narration']==edited['hook']
@@ -166,7 +166,7 @@ def test_durable_retry_then_success(db,selected_event,monkeypatch,status):
         assert len(job.logs)==2 and job.logs[0]['http_status']==status
 
 
-@pytest.mark.parametrize('error,attempts,kind',[(ProviderFailure('busy',status=503),6,'service_error'),
+@pytest.mark.parametrize('error,attempts,kind',[(ProviderFailure('busy',status=503),3,'service_error'),
     (ProviderFailure('key',status=401),1,'configuration_error'),(ProviderFailure('timeout',uncertain=True),1,'unknown_outcome')])
 def test_retry_limit_auth_and_unknown_outcome(db,selected_event,monkeypatch,error,attempts,kind):
     class Adapter(FakeProvider):
@@ -218,6 +218,7 @@ def test_invalid_output_retained_and_approval_revalidates(db,client,selected_eve
     monkeypatch.setattr('app.services.script_service.get_provider',lambda *args:Bad('fake'))
     with db() as session:enqueue_script(session,request_for(selected_event))
     run_queued(db)
+    run_queued(db)  # Exactly one repair before recording terminal invalid output.
     with db() as session:
         version=session.scalar(select(ScriptVersion));assert version.outcome=='validation_error' and version.status is None
         assert version.raw_output=='{"wrong":true}' and version.validation_errors
