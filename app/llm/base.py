@@ -74,6 +74,7 @@ DIAGNOSTIC_HEADERS = {'retry-after', 'date', 'x-request-id', 'x-goog-request-id'
 
 
 class LLMProvider(ABC):
+    name = 'unknown'
     def __init__(self, model, key='', timeout=60, output_limit=8192, client=None):
         self.model, self.key = model, key
         self.timeout, self.output_limit = timeout, output_limit
@@ -101,7 +102,7 @@ class LLMProvider(ABC):
     def send_http(self, url, headers, payload):
         """Exactly one send. Durable retry is exclusively the job manager's job."""
         started = time.monotonic()
-        provider_name = 'gemini' if 'generativelanguage.googleapis.com' in url else 'deepseek'
+        provider_name = self.name
         diagnostic = dict(endpoint=url, payload_hash=payload_hash(payload), provider=provider_name, model=self.model)
         owned = self.client is None
         client = self.client or httpx.Client(timeout=self.timeout, follow_redirects=False, transport=httpx.HTTPTransport(retries=0))
@@ -176,13 +177,9 @@ class FakeProvider(LLMProvider):
 
 def get_provider(name, model, timeout, output_limit):
     from app.config import get_settings
-    from .gemini import GeminiProvider
-    from .deepseek import DeepSeekProvider
+    from .registry import provider_class
     settings = get_settings()
     if name == 'fake' and settings.llm_allow_fake:
         return FakeProvider(model)
-    if name == 'gemini':
-        return GeminiProvider(model, settings.gemini_api_key, timeout, output_limit)
-    if name == 'deepseek':
-        return DeepSeekProvider(model, settings.deepseek_api_key, timeout, output_limit)
-    raise ProviderFailure('Nhà cung cấp không được bật')
+    cls = provider_class(name)
+    return cls(model, getattr(settings, name + '_api_key', ''), timeout, output_limit)

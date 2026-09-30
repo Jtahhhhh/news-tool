@@ -4,6 +4,7 @@ from .schemas import Output
 
 
 class DeepSeekProvider(LLMProvider):
+    name = 'deepseek'
     def build_request(self, data, prompt, feedback=''):
         return ('https://api.deepseek.com/chat/completions', {'Authorization': f'Bearer {self.key}'},
                 {'model': self.model, 'messages': [

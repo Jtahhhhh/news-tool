@@ -4,6 +4,7 @@ from .schemas import Output
 
 
 class GeminiProvider(LLMProvider):
+    name = 'gemini'
     def build_request(self, data, prompt, feedback=''):
         return (f'https://generativelanguage.googleapis.com/v1beta/models/{quote(self.model, safe="")}:generateContent',
                 {'x-goog-api-key': self.key},

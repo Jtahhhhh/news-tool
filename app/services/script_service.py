@@ -100,8 +100,7 @@ def connection_input(job):
 
 def prepare_requests(job, data):
     """Freeze source/schema and each allowed route payload before a worker can send."""
-    from app.llm.gemini import GeminiProvider
-    from app.llm.deepseek import DeepSeekProvider
+    from app.llm.registry import provider_class
     from app.llm.base import payload_hash
     if job.prepared_requests:
         return
@@ -111,7 +110,7 @@ def prepare_requests(job, data):
         if route['provider'] == 'fake':
             endpoint, payload = 'mock://fake', data.model_dump(mode='json')
         else:
-            cls = GeminiProvider if route['provider'] == 'gemini' else DeepSeekProvider
+            cls = provider_class(route['provider'])
             adapter = cls(route['model'], timeout=job.timeout_seconds, output_limit=job.output_limit)
             adapter.schema = job.schema_snapshot
             endpoint, _, payload = adapter.build_request(data, job.prompt_text, job.feedback)
