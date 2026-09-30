@@ -17,6 +17,23 @@ from app.services.script_service import enqueue_script, CreateRequest, claim_scr
 FACTS = 'Bộ GD&ĐT: 91 ngành được cấp học bổng 3,7–8,4 triệu đồng/tháng. Các ngành gồm khoa học cơ bản, kỹ thuật then chốt, công nghệ chiến lược.'
 
 
+def test_save_groq_policy_after_legacy_disabled_configuration(db,client):
+    with db() as session:
+        control.get_policy(session)
+        session.get(LLMPolicy,1).data=control.Policy(routes=[control.Route(provider='deepseek',model='deepseek-test'),
+            control.Route(provider='gemini',model='gemini-test')],allowed_providers=[]).model_dump()
+    policy=client.get('/llm?format=json').json()['policy']
+    policy.update(routes=[dict(provider='groq',model='openai/gpt-oss-120b',reservation_microusd=0)],allowed_providers=['groq'])
+    response=client.post('/llm/policy',json=policy)
+    assert response.status_code==200,response.text
+    saved=client.get('/llm?format=json').json()['policy']
+    assert saved['allowed_providers']==['groq']
+    assert saved['routes'][0]['model']=='openai/gpt-oss-120b'
+    with db() as session:assert control.capture_routing(session,'groq')['routes'][0]['provider']=='groq'
+    html=client.get('/llm').text
+    assert 'name="allow_groq" checked' in html
+
+
 def article():
     return Input(schema_version='1.0',story_id='1',language='vi',target_seconds=45,tone='neutral',sources=[dict(
         source_id='article-1',url='https://example.com/scholarship',title='91 ngành được cấp học bổng 3,7–8,4 triệu đồng/tháng',published_at=None,text=FACTS)])

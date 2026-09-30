@@ -1,5 +1,6 @@
 .env
 .env.credentials
+.env.tiktok
 secrets
 results
 script-api-lab/.env

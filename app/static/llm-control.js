@@ -16,9 +16,16 @@
     });
   }
   handle(document.getElementById('llm-policy'),f=>{
-    const names=f.get('order').split(',').map(v=>v.trim()).filter(Boolean);
+    const supported=['groq','gemini','deepseek'];
+    const ordered=(f.get('order')||'').split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
+    if(ordered.some(n=>!supported.includes(n)))throw new Error('Thứ tự chỉ nhận groq, gemini, deepseek (tên đúng là groq).');
+    const allowed=supported.filter(n=>f.has('allow_'+n));
+    if(f.has('fallback_enabled')&&!allowed.length)throw new Error('Hãy cho phép ít nhất một provider trước khi bật fallback.');
+    // Old policies have no Groq route. A checked provider must survive saving.
+    const names=[...new Set([...ordered,...allowed])].filter(n=>!allowed.length||allowed.includes(n));
+    if(!names.length)throw new Error('Nhập thứ tự provider hoặc tích chọn provider muốn dùng.');
     return ['/llm/policy',{routes:names.map(provider=>({provider,model:f.get('model_'+provider),reservation_microusd:Math.round(Number(f.get('cost_'+provider))*1000000)})),
-      allowed_providers:names.filter(n=>f.has('allow_'+n)),fallback_enabled:f.has('fallback_enabled'),fallback_on:['service_error','quota'].filter(n=>f.has('fallback_'+n)),
+      allowed_providers:allowed,fallback_enabled:f.has('fallback_enabled'),fallback_on:['service_error','quota'].filter(n=>f.has('fallback_'+n)),
       retry_base_seconds:Number(f.get('retry_base_seconds')),retry_cap_seconds:Number(f.get('retry_cap_seconds')),retry_window_seconds:Number(f.get('retry_window_seconds')),max_concurrent:Number(f.get('max_concurrent')),max_attempts:Number(f.get('max_attempts')),max_output_tokens_total:Number(f.get('max_output_tokens_total')),budget_microusd:Math.round(Number(f.get('budget'))*1000000),
       circuit_threshold:Number(f.get('circuit_threshold')),circuit_seconds:Number(f.get('circuit_seconds'))}];
   });

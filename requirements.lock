@@ -1,4 +1,7 @@
 # Resolved Python 3.12 dependency versions for the shared Docker image.
+cryptography==46.0.5
+cffi==2.0.0
+pycparser==2.23
 alembic==1.20.0
 annotated-doc==0.0.5
 annotated-types==0.8.0

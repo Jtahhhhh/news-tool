@@ -14,7 +14,7 @@ from pip._vendor.packaging.utils import parse_wheel_filename
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / '.wheels'
-PLATFORMS = ['manylinux_2_28_x86_64', 'manylinux_2_24_x86_64', 'manylinux2014_x86_64', 'manylinux_2_17_x86_64']
+PLATFORMS = ['manylinux_2_34_x86_64', 'manylinux_2_28_x86_64', 'manylinux_2_24_x86_64', 'manylinux2014_x86_64', 'manylinux_2_17_x86_64']
 TAGS = set(cpython_tags((3, 12), abis=['cp312'], platforms=PLATFORMS)) | set(compatible_tags((3, 12), interpreter='cp312', platforms=PLATFORMS))
 
 

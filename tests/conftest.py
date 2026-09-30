@@ -16,7 +16,7 @@ def db():
         pytest.fail('Integration tests only run against a database ending in _test')
     migrate()
     with engine.begin() as conn:
-        conn.execute(text('TRUNCATE llm_attempts, llm_credentials, llm_quota_states, llm_provider_health, llm_policy, jobs, articles, events, sources RESTART IDENTITY CASCADE'))
+        conn.execute(text('TRUNCATE publish_attempts, publish_jobs, tiktok_accounts, tiktok_oauth_states, video_reviews, video_versions, video_jobs, tts_audio, media_assets, llm_attempts, llm_credentials, llm_quota_states, llm_provider_health, llm_policy, jobs, articles, events, sources RESTART IDENTITY CASCADE'))
     yield session_scope
 
 

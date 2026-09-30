@@ -8,7 +8,9 @@
   <script src="/static/app.js" defer></script>
   <script src="/static/scripts.js?v=0004" defer></script>
   <script src="/static/llm-control.js?v=0004" defer></script>
+  <script src="/static/video.js?v=0006" defer></script>
   <link rel="stylesheet" href="/static/scripts.css">
+  <style>.video-preview{width:100%;max-height:70vh;background:#111}.review-grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:24px}@media(max-width:900px){.review-grid{grid-template-columns:1fr}}</style>
   <meta name="csrf-token" content="{{ request.state.csrf_token }}">
 </head>
 <body>
@@ -18,7 +20,7 @@
 </div></nav>
 <div class="shell layout">
   <aside><p class="section-label">KHÔNG GIAN LÀM VIỆC</p>
-    {% for url, label in [('/sources','Nguồn tin'),('/articles','Tin đã lấy'),('/selection','Chọn tin'),('/selected','Tin đã chọn'),('/scripts','Kịch bản'),('/llm','Cấu hình LLM'),('/jobs','Lịch sử chạy')] %}
+    {% for url, label in [('/sources','Nguồn tin'),('/articles','Tin đã lấy'),('/selection','Chọn tin'),('/selected','Tin đã chọn'),('/scripts','Kịch bản'),('/videos','Video'),('/publishing','TikTok'),('/llm','Cấu hình LLM'),('/jobs','Lịch sử chạy')] %}
     <a class="nav-item {% if request.url.path == url %}active{% endif %}" href="{{ url }}">{{ label }}</a>
     {% endfor %}
     <div class="sidebar-note">RSS → Sự kiện → Duyệt tin<br><span>Thời gian hiển thị theo UTC.</span></div>

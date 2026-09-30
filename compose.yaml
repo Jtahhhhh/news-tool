@@ -1,4 +1,9 @@
 name: news-tool
+x-tiktok: &tiktok
+  TIKTOK_ENABLED: ${TIKTOK_ENABLED:-false}
+  TIKTOK_DIRECT_POST_ENABLED: ${TIKTOK_DIRECT_POST_ENABLED:-false}
+  TIKTOK_REDIRECT_URI: ${TIKTOK_REDIRECT_URI:-}
+  TIKTOK_TIMEOUT_SECONDS: ${TIKTOK_TIMEOUT_SECONDS:-60}
 x-app: &app
   image: news-tool:local
   build: .
@@ -31,6 +36,9 @@ x-app: &app
     LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
     LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-8192}
     LLM_ALLOW_FAKE: ${LLM_ALLOW_FAKE:-false}
+    MEDIA_ROOT: /data
+    TTS_URL: http://tts:8000
+    TTS_TIMEOUT_SECONDS: ${TTS_TIMEOUT_SECONDS:-900}
   init: true
   restart: unless-stopped
   stop_grace_period: 35s
@@ -52,16 +60,23 @@ services:
     restart: unless-stopped
   web:
     <<: *app
-    # Only explicitly allowlisted non-LLM-secret settings reach web.
-    env_file: []
+    # Only TikTok OAuth services receive this dedicated secret file.
+    env_file:
+      - path: .env.tiktok
+        required: false
     environment:
-      <<: *env
+      <<: [*env, *tiktok]
       GEMINI_API_KEY: ""
       DEEPSEEK_API_KEY: ""
       GROQ_API_KEY: ""
     command: ["python", "-m", "app.start"]
     ports:
       - "127.0.0.1:${WEB_PORT:-8000}:8000"
+    volumes:
+      - media_assets:/data/assets
+      - media_audio:/data/audio
+      - media_video:/data/video
+      - media_tmp:/data/tmp
     depends_on:
       db:
         condition: service_healthy
@@ -95,7 +110,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-
   llm-worker:
     <<: *app
     env_file:
@@ -117,6 +131,80 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+  tts:
+    build:
+      context: vendor/VieNeu-TTS
+      dockerfile: docker/Dockerfile.cpu
+    image: news-tool-vieneu:cpu
+    command: ["python", "-m", "apps.openai_speech"]
+    environment:
+      HF_HOME: /home/app/.cache/huggingface
+      PORT: 8000
+      VIENEU_BACKEND: onnx
+      VIENEU_PRECISION: ${VIENEU_PRECISION:-fp32}
+      VIENEU_MAX_STREAMS: 1
+      VIENEU_QUEUE: 2
+      VIENEU_QUEUE_TIMEOUT: 30
+      VIENEU_WATERMARK: 1
+    volumes:
+      - tts_models:/home/app/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 180s
+    restart: unless-stopped
+  render-worker:
+    <<: *app
+    env_file: []
+    command: ["python", "-m", "app.render_worker"]
+    volumes:
+      - media_assets:/data/assets
+      - media_audio:/data/audio
+      - media_video:/data/video
+      - media_tmp:/data/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      tts:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.render_worker", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  publish-worker:
+    <<: *app
+    env_file:
+      - path: .env.tiktok
+        required: false
+    environment:
+      <<: [*env, *tiktok]
+    command: ["python", "-m", "app.publish_worker"]
+    stop_grace_period: 140s
+    volumes:
+      - media_video:/data/video:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.publish_worker", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   postgres_data:
+  tts_models:
+  media_assets:
+  media_audio:
+  media_video:
+  media_tmp:

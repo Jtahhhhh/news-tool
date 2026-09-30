@@ -89,3 +89,5 @@ class Job(Base):
 
 from .scripts import ScriptJob, ScriptVersion, ScriptSourceSnapshot, ScriptReview  # noqa: E402
 from .llm_control import LLMCredential, LLMQuotaState, LLMProviderHealth, LLMAttempt, LLMPolicy  # noqa: E402
+from .video import MediaAsset, TTSAudio, VideoJob, VideoVersion, VideoReview  # noqa: E402
+from .publishing import TikTokAccount, TikTokOAuthState, PublishJob, PublishAttempt  # noqa: E402

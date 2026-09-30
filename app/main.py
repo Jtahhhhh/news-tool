@@ -34,7 +34,7 @@ async def csrf_protection(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 async def error_page(request, exc):
-    if 'application/json' in request.headers.get('accept', '') or request.url.path.startswith('/script-jobs'):
+    if 'application/json' in request.headers.get('accept', '') or request.url.path.startswith(('/script-jobs','/video-jobs','/publish-jobs','/assets','/videos/')):
         return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
     return templates.TemplateResponse(request=request, name='error.html',
                                       context={'detail': exc.detail}, status_code=exc.status_code)
@@ -56,6 +56,19 @@ from app.routes.scripts import router as scripts_router  # noqa: E402
 app.include_router(scripts_router)
 from app.routes.llm_control import router as llm_control_router  # noqa: E402
 app.include_router(llm_control_router)
+from app.routes.video import router as video_router  # noqa: E402
+app.include_router(video_router)
+from app.routes.publishing import router as publishing_router  # noqa: E402
+app.include_router(publishing_router)
+
+
+@app.middleware('http')
+async def publishing_privacy_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(('/tiktok', '/publishing', '/publish-jobs')):
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
 
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 @app.exception_handler(RequestValidationError)

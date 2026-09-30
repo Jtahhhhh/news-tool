@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Gửi video sang TikTok{% endblock %}
+{% block content %}
+<header class="page-heading"><div><div class="section-label">TIKTOK UPLOAD</div><h1>Gửi video sang TikTok</h1><p>Video được chuyển vào TikTok. Bạn cần mở thông báo trong hộp thư TikTok để chỉnh sửa và hoàn tất đăng.</p></div></header>
+{% if not ready %}<div class="alert alert-warning">Chưa bật hoặc chưa đủ cấu hình TikTok. Xem tài liệu <strong>docs/HUONG-DAN-TIKTOK.md</strong>. Direct Post chưa khả dụng.</div>{% endif %}
+<section class="card p-4 mb-4"><h2>Tài khoản nhận</h2>
+<form action="/tiktok/connect" method="post"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><button class="btn btn-outline-primary" {% if not ready %}disabled{% endif %}>Kết nối TikTok</button></form>
+{% for a in accounts %}<div class="mt-3"><strong>{{ a.display_name }}</strong> · #{{ a.id }} · {{ a.state }}
+<form action="/tiktok/accounts/{{ a.id }}/disconnect" method="post"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><button class="btn btn-sm btn-outline-danger" {% if a.state=='disconnected' %}disabled{% endif %}>Ngắt kết nối / thử thu hồi lại</button></form></div>{% else %}<p>Chưa kết nối tài khoản nào.</p>{% endfor %}
+<p class="small mt-3">Ngắt kết nối chặn lần gửi tiếp theo; không thu hồi được request đang chạy và không xóa video đã gửi.</p></section>
+<form id="publish-create" class="card p-4 mb-4"><h2>Xác nhận gửi một phiên bản cụ thể</h2>
+<label>Video đã duyệt<select class="form-select" name="video_version_id" required><option value="">Chọn video</option>{% for v in versions %}<option value="{{ v.id }}" data-hash="{{ v.output_sha256 }}" data-media="/media/video/{{ v.output_key.split('/')[-1] }}">Video #{{ v.id }} · bản {{ v.version }} · {{ '%.1f'|format(v.duration_seconds) }} giây</option>{% endfor %}</select></label>
+<video id="publish-preview" class="video-preview mt-3" controls preload="metadata" hidden></video>
+<label class="mt-3">Gửi đến tài khoản<select class="form-select" name="account_id" required><option value="">Chọn tài khoản nhận</option>{% for a in accounts %}{% if a.state=='connected' %}<option value="{{ a.id }}">{{ a.display_name }} · #{{ a.id }}</option>{% endif %}{% endfor %}</select></label>
+<label class="mt-3">Caption và hashtag để sao chép<textarea class="form-control" name="caption" rows="3" maxlength="4000"></textarea></label>
+<p class="small">Upload API video không nhận caption/hashtag. Nội dung này chỉ lưu local để bạn sao chép vào TikTok.</p><button type="button" class="btn btn-outline-secondary" id="copy-caption">Sao chép caption</button>
+<p id="publish-summary" class="mt-3"></p>
+<label><input type="checkbox" name="confirmed" required> Tôi đã xem đúng video, chọn đúng tài khoản và đồng ý gửi file này sang TikTok. Việc duyệt video trước đó không thay thế xác nhận gửi này.</label>
+<button class="btn btn-primary mt-3" {% if not ready %}disabled{% endif %}>Gửi sang TikTok</button><div class="script-message" role="status"></div></form>
+{% if unavailable %}<details class="mb-4"><summary>Video chưa đủ điều kiện</summary>{% for v in unavailable %}<p><a href="/videos/{{ v.id }}">Video #{{ v.id }}</a>: {{ v.reason }}</p>{% endfor %}</details>{% endif %}
+<section><h2>Lịch sử gửi</h2>{% for j in jobs %}<article class="card p-3 mb-3" data-publish-job="{{ j.id }}"><h3 class="h5">Job #{{ j.id }} · <a href="/videos/{{ j.video_version_id }}">Video #{{ j.video_version_id }}</a> → {{ j.snapshot.account_name }}</h3><p class="publish-status">{{ labels.get(j.status,j.status) }}</p><p class="publish-error">{{ j.error or '' }}</p><p>Caption lưu: {{ j.snapshot.caption }}</p><div class="actions"><button class="btn btn-outline-secondary publish-action" data-action="reconcile" {% if not j.publish_id or j.status in ['published','cancelled'] %}disabled{% endif %}>Kiểm tra trạng thái cũ</button><button class="btn btn-outline-danger publish-action" data-action="cancel" {% if j.status in ['published','cancelled','stopped'] %}disabled{% endif %}>Dừng local</button></div><details><summary>Lịch sử thao tác</summary><pre class="publish-attempts"></pre></details><div class="script-message"></div></article>{% else %}<p>Chưa có yêu cầu gửi.</p>{% endfor %}</section>
+<script src="/static/publishing.js" defer></script>
+{% endblock %}

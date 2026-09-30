@@ -1,5 +1,6 @@
 .env
 .env.credentials
+.env.tiktok
 secrets/
 .venv/
 __pycache__/
@@ -9,3 +10,5 @@ __pycache__/
 .wheels
 results/*.dump
 results/llm-integration/
+
+backups/
