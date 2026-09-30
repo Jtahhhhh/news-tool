@@ -9,7 +9,7 @@ import random
 from datetime import timedelta
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from app.config import get_settings
 from app.models import (LLMCredential, LLMQuotaState, LLMProviderHealth, LLMAttempt, LLMPolicy, ScriptJob, utcnow)
 from app.llm.secrets import resolve, mask, redact_secrets
@@ -29,7 +29,7 @@ class Policy(BaseModel):
     fallback_enabled: bool = False
     fallback_on: list[Literal['service_error','quota']] = Field(default_factory=lambda:['service_error','quota'])
     max_attempts: int = Field(default=6, ge=1, le=6)
-    retry_base_seconds: int = Field(default=15, ge=1, le=120)
+    retry_base_seconds: int = Field(default=1, ge=1, le=120)
     retry_cap_seconds: int = Field(default=120, ge=1, le=120)
     retry_window_seconds: int = Field(default=900, ge=1, le=900)
     max_concurrent: int = Field(default=1, ge=1, le=20)
@@ -60,7 +60,8 @@ def default_policy():
     if fallback and (fallback not in ('gemini','deepseek','groq') or fallback==names[0]):
         raise ValueError('LLM_FALLBACK_PROVIDER phải là provider khác hợp lệ')
     if fallback:names.append(fallback)
-    names += [name for name in ('gemini','deepseek','groq') if name not in names]
+    if not fallback:
+        names += [name for name in ('gemini','deepseek','groq') if name not in names]
     return Policy(routes=[Route(provider=n,model=getattr(s,f'{n}_model')) for n in names],
                   allowed_providers=names[:2] if fallback else names, fallback_enabled=bool(fallback),
                   fallback_on=['service_error'] if fallback else ['service_error','quota']).model_dump()
@@ -129,7 +130,7 @@ def health_for(session, provider, model):
 
 def advance_route(job, current_policy, reason):
     policy=job.routing
-    if (job.kind!='script' or not policy.get('fallback_enabled') or not current_policy['fallback_enabled']
+    if (job.kind!='script' or job.repair_attempts or not policy.get('fallback_enabled') or not current_policy['fallback_enabled']
         or reason not in policy.get('fallback_on',[]) or reason not in current_policy['fallback_on']):
         return False
     routes=policy['routes']
@@ -163,6 +164,10 @@ def defer(job, status, reason, until=None):
 def reserve_attempt(session, job):
     """Return a secret to the worker only, or persist a wait/failure without a send."""
     current=get_policy(session)
+    active = session.scalar(select(func.count()).select_from(LLMAttempt).where(
+        LLMAttempt.status.in_(('dispatched','unknown_outcome')), LLMAttempt.reservation_until > utcnow()))
+    if active >= get_settings().llm_max_concurrency:
+        defer(job,'retry_wait','concurrency',utcnow()+timedelta(seconds=1));return None
     if not job.routing:
         job.routing=capture_routing(session,job.provider)
     policy=job.routing
@@ -192,7 +197,6 @@ def reserve_attempt(session, job):
         elif health.state=='open' and health.next_attempt_at and health.next_attempt_at>now:
             health_wait=health.next_attempt_at
         if health_wait:
-            if advance_route(job,current,'service_error'):continue
             defer(job,'retry_wait','circuit_open',health_wait);return None
         candidates=session.scalars(select(LLMCredential).where(LLMCredential.provider==job.provider,
             LLMCredential.enabled.is_(True),LLMCredential.state=='ready').order_by(
@@ -325,7 +329,10 @@ def json_safe(value):
 def retry_delay(job,error):
     policy=job.routing or {}
     cap=policy.get('retry_cap_seconds',120)
-    backoff=min(cap,policy.get('retry_base_seconds',15)*2**max(0,job.attempts-1)+random.uniform(0,2))
+    # Default waits are 1–2s, then 3–5s. Existing explicitly configured base remains respected.
+    number = sum(1 for item in job.logs if item.get('http_status') in (429,500,502,503,504)
+                 and item.get('provider',job.provider)==job.provider)
+    backoff=min(cap,policy.get('retry_base_seconds',1)*(1 if number <= 1 else 3)+random.uniform(0,1 if number <= 1 else 2))
     # Never cap Retry-After to an earlier time.
     return max(backoff,error.retry_after or 0)
 
@@ -343,8 +350,15 @@ def schedule_failure(session,job,error):
     elif job.attempts>=min(6,job.routing.get('max_attempts',6),current['max_attempts']):
         job.status='failed';job.finished_at=utcnow()
     elif error.kind in ('service_error','rate_limit'):
-        if error.kind=='service_error':advance_route(job,current,'service_error')
-        job.status='retry_wait';job.next_attempt_at=utcnow()+timedelta(seconds=retry_delay(job,error))
+        sent=session.scalar(select(func.count()).select_from(LLMAttempt).where(
+            LLMAttempt.job_id==job.id,LLMAttempt.provider==job.provider))
+        if job.repair_attempts or sent >= 3:
+            if not job.repair_attempts and advance_route(job,current,'service_error'):
+                job.status='retry_wait';job.next_attempt_at=utcnow()
+            else:
+                job.status='failed';job.finished_at=utcnow()
+        else:
+            job.status='retry_wait';job.next_attempt_at=utcnow()+timedelta(seconds=retry_delay(job,error))
     elif error.kind in ('daily_quota','billing_quota'):
         # Next reservation may use another independent group, then allowed fallback.
         job.status='waiting_quota';job.next_attempt_at=utcnow()+timedelta(seconds=retry_delay(job,error))

@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.database import session_scope
 from app.models import ScriptJob
 from app.services.jobs import claim_job, execute_job, fail_owned, recover_expired, schedule_due
-from app.services.script_service import claim_script, execute_script, fail_script_owned, recover_scripts
+from app.services.script_service import claim_script, execute_script, fail_script_owned, recover_scripts, source_fetch_budget
 from app.services.llm_control import sync_credentials
 
 HEARTBEAT = Path('/tmp/news-tool-worker-heartbeat')
@@ -39,13 +39,14 @@ def main():
                 recover_expired(session)
                 recover_scripts(session)
                 schedule_due(session)
-                script_claim = claim_script(session) if prefer_script else None
+                script_claim = claim_script(session) if prefer_script and settings.worker_role != 'collect' else None
                 claim = None if script_claim else claim_job(session)
-                if not claim and not script_claim:
+                if not claim and not script_claim and settings.worker_role != 'collect':
                     script_claim = claim_script(session)
                 is_script = script_claim is not None
                 claim = script_claim or claim
-                script_timeout = session.get(ScriptJob, script_claim[0]).timeout_seconds if script_claim else 0
+                script_job = session.get(ScriptJob, script_claim[0]) if script_claim else None
+                script_timeout = script_job.timeout_seconds + source_fetch_budget(script_job) if script_job else 0
                 prefer_script = not is_script
             if claim:
                 job_id, owner = claim
