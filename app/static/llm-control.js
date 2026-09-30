@@ -16,7 +16,7 @@
     });
   }
   handle(document.getElementById('llm-policy'),f=>{
-    const names=f.get('first')==='gemini'?['gemini','deepseek']:['deepseek','gemini'];
+    const names=f.get('order').split(',').map(v=>v.trim()).filter(Boolean);
     return ['/llm/policy',{routes:names.map(provider=>({provider,model:f.get('model_'+provider),reservation_microusd:Math.round(Number(f.get('cost_'+provider))*1000000)})),
       allowed_providers:names.filter(n=>f.has('allow_'+n)),fallback_enabled:f.has('fallback_enabled'),fallback_on:['service_error','quota'].filter(n=>f.has('fallback_'+n)),
       retry_base_seconds:Number(f.get('retry_base_seconds')),retry_cap_seconds:Number(f.get('retry_cap_seconds')),retry_window_seconds:Number(f.get('retry_window_seconds')),max_concurrent:Number(f.get('max_concurrent')),max_attempts:Number(f.get('max_attempts')),max_output_tokens_total:Number(f.get('max_output_tokens_total')),budget_microusd:Math.round(Number(f.get('budget'))*1000000),

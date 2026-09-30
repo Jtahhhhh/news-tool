@@ -181,7 +181,7 @@ def test_connection(credential_id:int,payload:ConnectionInput):
         job=ScriptJob(kind='connection_test',test_credential_id=credential_id,provider=credential.provider,model=payload.model,
                       routing=routing,idempotency_key=payload.idempotency_key,request_hash=request_hash,tone='neutral',
                       target_seconds=15,timeout_seconds=s.llm_timeout_seconds,output_limit=min(1024,s.llm_max_output_tokens),
-                      prompt_text=PROMPT.read_text(encoding='utf-8'))
+                      prompt_text='Kiểm tra kết nối. Trả JSON đúng schema, decision=insufficient_evidence, reason="Kiểm tra kết nối thành công", title/hook/caption rỗng, claims/scenes/warnings là [].')
         session.add(job);session.flush()
         from app.services.script_service import prepare_requests, connection_input
         prepare_requests(job, connection_input(job))
@@ -211,7 +211,7 @@ def retry_job(job_id:int,payload:RetryInput):
         if not job:raise HTTPException(404,'Không tìm thấy job')
         if job.status in ('running','succeeded','queued','retry_wait'):raise HTTPException(409,'Job đang chạy/đã xong/đã xếp lịch')
         if job.attempts>=min(6,job.routing.get('max_attempts',6)) or control.retry_expired(job):raise HTTPException(409,'Đã hết lượt/thời gian của job; cần tạo yêu cầu mới')
-        if job.error_kind in ('validation_error','insufficient_evidence','output_truncated','empty_response','content_refusal','response_parse_error'):raise HTTPException(409,'Cần kiểm tra nội dung và tạo yêu cầu mới, không retry cùng job')
+        if job.error_kind in ('grounding_error','validation_error','insufficient_evidence','output_truncated','empty_response','content_refusal','response_parse_error'):raise HTTPException(409,'Cần kiểm tra nội dung và tạo yêu cầu mới, không retry cùng job')
         if job.next_attempt_at and job.next_attempt_at>utcnow():raise HTTPException(409,'Chưa đến thời điểm được thử lại; không bỏ qua Retry-After')
         if job.status=='unknown_outcome' and not payload.acknowledge_unknown:
             raise HTTPException(422,'Lần trước có thể đã tính phí. Cần xác nhận chủ động trước khi thử lại')

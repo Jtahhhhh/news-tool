@@ -23,6 +23,11 @@ x-app: &app
     LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
     GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+    GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+    LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-}
+    LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-2}
+    LLM_FETCH_ARTICLE: ${LLM_FETCH_ARTICLE:-true}
+    ARTICLE_FETCH_TIMEOUT_SECONDS: ${ARTICLE_FETCH_TIMEOUT_SECONDS:-3}
     LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
     LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-8192}
     LLM_ALLOW_FAKE: ${LLM_ALLOW_FAKE:-false}
@@ -53,6 +58,7 @@ services:
       <<: *env
       GEMINI_API_KEY: ""
       DEEPSEEK_API_KEY: ""
+      GROQ_API_KEY: ""
     command: ["python", "-m", "app.start"]
     ports:
       - "127.0.0.1:${WEB_PORT:-8000}:8000"
@@ -67,6 +73,9 @@ services:
       start_period: 15s
   worker:
     <<: *app
+    environment:
+      <<: *env
+      WORKER_ROLE: collect
     env_file:
       - path: script-api-lab/.env
         required: false
@@ -82,6 +91,28 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-m", "app.worker", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  llm-worker:
+    <<: *app
+    env_file:
+      - path: script-api-lab/.env
+        required: false
+      - path: .env
+        required: false
+      - path: .env.credentials
+        required: false
+    command: ["python", "-m", "app.llm_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.llm_worker", "--healthcheck"]
       interval: 15s
       timeout: 5s
       retries: 5

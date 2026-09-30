@@ -34,3 +34,6 @@ Audit này được viết trước thay đổi logic. Migration source hiện �
 ## Tài liệu chính thức đã đối chiếu
 
 [Groq Structured Outputs](https://console.groq.com/docs/structured-outputs) hỗ trợ strict cho `openai/gpt-oss-120b`, yêu cầu mọi field required và object đóng; [API reference](https://console.groq.com/docs/api-reference) cung cấp Chat Completions; [error codes](https://console.groq.com/docs/errors) mô tả lỗi HTTP. Structured Output bảo vệ format, không chứng minh khẳng định có căn cứ.
+# Ghi chú bàn giao
+
+Audit bên dưới ghi nhận trạng thái trước khi triển khai Groq. Phần triển khai và kết quả hiện tại được mô tả tại [HUONG-DAN-GROQ.md](HUONG-DAN-GROQ.md) và [GROQ-VALIDATION.md](GROQ-VALIDATION.md).

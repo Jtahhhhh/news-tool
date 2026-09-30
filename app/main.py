@@ -45,7 +45,7 @@ def health():
     with session_scope() as session:
         session.execute(text('SELECT 1'))
         revision = session.execute(text('SELECT version_num FROM alembic_version')).scalar()
-        if revision != '0004':
+        if revision != '0007':
             raise HTTPException(503, 'Migration chưa hoàn tất')
     return {'status': 'ok'}
 
