@@ -87,6 +87,8 @@ def validate_output(data: Input, raw: str) -> Output:
     for scene in out.scenes:
         if not set(scene.claim_ids) <= set(ids):
             raise ValueError("unknown claim_id")
-    if out.decision == "draft" and abs(sum(s.seconds for s in out.scenes)-data.target_seconds)>3:
-        raise ValueError("planned duration differs from target by more than 3 seconds")
+    if out.decision == "draft" and sum(s.seconds for s in out.scenes)>data.target_seconds+3:
+        raise ValueError("planned duration exceeds target by more than 3 seconds")
+    from .grounding import validate_grounding
+    validate_grounding(data, out)
     return out

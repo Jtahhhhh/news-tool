@@ -152,8 +152,8 @@ class LLMProvider(ABC):
 
 
 def user_content(data, feedback):
-    return 'INPUT_DATA_JSON:\n' + data.model_dump_json() + (
-        '\nEDITOR_FEEDBACK (must remain consistent with evidence and schema):\n' + feedback if feedback else '')
+    from .prompts.news_script import build_news_script_prompt
+    return build_news_script_prompt(data, feedback)
 
 
 class FakeProvider(LLMProvider):
