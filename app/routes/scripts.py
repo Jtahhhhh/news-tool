@@ -19,6 +19,8 @@ def job_json(job):
         'id', 'event_id', 'status', 'provider', 'model', 'attempts', 'next_attempt_at', 'created_at',
         'finished_at', 'retry_started_at', 'error_kind', 'error', 'logs', 'kind', 'cancelled', 'reserved_microusd', 'reserved_output_tokens')}
     result['max_attempts'] = (job.routing or {}).get('max_attempts', 6)
+    result['source_details'] = job.source_details
+    result['repair_attempts'] = job.repair_attempts
     return result
 
 

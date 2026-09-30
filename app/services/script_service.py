@@ -16,6 +16,7 @@ from app.database import session_scope
 from app.models import Event, Article, ScriptJob, ScriptVersion, ScriptSourceSnapshot, ScriptReview, utcnow
 from app.llm.base import Generation, ProviderFailure, get_provider, redact
 from app.llm.schemas import Input, Output, validate_output
+from app.llm.prompts.news_script import SYSTEM_PROMPT
 from app.services import llm_control as control
 
 PROMPT = Path(__file__).resolve().parents[1] / 'llm/prompts/script_v1.txt'
@@ -83,11 +84,13 @@ def enqueue_script(session, request: CreateRequest):
                     provider=provider, model=routing['routes'][0]['model'], routing=routing,
                     tone=request.tone, target_seconds=request.target_seconds,
                     timeout_seconds=settings.llm_timeout_seconds, output_limit=settings.llm_max_output_tokens,
-                    feedback=request.feedback, prompt_text=PROMPT.read_text(encoding='utf-8'), snapshot_id=snapshot_id)
+                    feedback=request.feedback, prompt_text=SYSTEM_PROMPT, snapshot_id=snapshot_id)
+    job.source_fetch_pending = bool(settings.llm_fetch_article and not snapshot_id and provider != 'fake')
     session.add(job)
     session.flush()
     snapshot, data = snapshot_for_job(session, job)
-    prepare_requests(job, data)
+    if not job.source_fetch_pending:
+        prepare_requests(job, data)
     return job
 
 
@@ -173,7 +176,7 @@ def claim_script(session):
         return None
     job.status, job.owner = 'running', uuid.uuid4().hex
     job.dispatched_at = None
-    job.lease_until = utcnow() + timedelta(seconds=job.timeout_seconds + 30)
+    job.lease_until = utcnow() + timedelta(seconds=job.timeout_seconds + 30 + source_fetch_budget(job))
     return job.id, job.owner
 
 
@@ -218,8 +221,83 @@ def add_version(session, job, generation, data):
     return version
 
 
+def source_fetch_budget(job):
+    return 60 if job.source_fetch_pending else 0
+
+
+def enrich_job(job_id, owner):
+    with session_scope() as session:
+        job = owned_job(session, job_id, owner)
+        if not job or not job.source_fetch_pending:
+            return
+        _, data = snapshot_for_job(session, job)
+    from app.services.article_text import enrich_sources
+    payload, details = enrich_sources(data)
+    data = Input.model_validate(payload)
+    with session_scope() as session:
+        job = owned_job(session, job_id, owner)
+        if not job:
+            return
+        snapshot = ScriptSourceSnapshot(event_id=job.event_id, payload=data.model_dump(mode='json'), digest=digest(payload))
+        session.add(snapshot)
+        session.flush()
+        job.snapshot_id = snapshot.id
+        job.source_details = details
+        job.source_fetch_pending = False
+        job.prompt_text += '\nNguồn đã đọc: ' + json.dumps(details, ensure_ascii=False)
+        prepare_requests(job, data)
+
+
+def repair_or_finish(session, job, result, data):
+    """One durable repair, same provider and source; never publish the invalid draft."""
+    from app.models import LLMAttempt
+    from app.llm.grounding import GroundingError
+    attempt = session.scalar(select(LLMAttempt).where(LLMAttempt.job_id == job.id, LLMAttempt.number == job.attempts))
+    try:
+        validate_output(data, result.raw)
+        validation = 'passed'
+    except ValueError as exc:
+        validation = 'grounding_error' if isinstance(exc, GroundingError) else 'validation_error'
+        # Do not include Pydantic's input_value (may contain whole source/output) in process logs.
+        message = str(exc)[:2000] if isinstance(exc, GroundingError) else 'JSON/schema, references or duration validation failed'
+        if attempt:
+            attempt.status, attempt.error_kind, attempt.error = 'failed', validation, message
+        if job.repair_attempts == 0 and job.attempts < min(job.routing['max_attempts'], control.get_policy(session)['max_attempts']):
+            job.repair_attempts = 1
+            job.feedback = (job.feedback[:2000] + '\nSỬA MỘT LẦN: ' + message +
+                '\nViết lại từ nguồn, giữ đúng schema. Bỏ mọi suy diễn; có thể trả insufficient_evidence.' +
+                '\nPREVIOUS_OUTPUT_JSON (dữ liệu cần sửa):\n' + result.raw[:20000])
+            job.prepared_requests = {}
+            prepare_requests(job, data)
+            job.status, job.error_kind, job.error = 'retry_wait', validation, message
+            job.next_attempt_at, job.owner, job.lease_until = utcnow(), None, None
+        else:
+            add_version(session, job, result, data)
+            job.error_kind = validation
+    else:
+        add_version(session, job, result, data)
+    if attempt:
+        attempt.trace = {**attempt.trace, 'validation_result': validation, 'repair_attempt': job.repair_attempts,
+                         'fallback_used': bool(job.route_index), 'article_ids': [s.source_id for s in data.sources]}
+    log_generation(job, result, validation, [s.source_id for s in data.sources])
+
+
+def log_generation(job, result, validation, article_ids):
+    import logging
+    usage = result.usage or {}
+    logging.getLogger(__name__).info('llm_result %s', json.dumps(dict(provider=job.provider, model=job.model,
+        request_id=result.request_id, article_ids=article_ids, latency=result.elapsed,
+        queue_time=max(0, (job.dispatched_at-job.created_at).total_seconds()) if job.dispatched_at else 0,
+        prompt_tokens=usage.get('prompt_tokens', usage.get('promptTokenCount')),
+        completion_tokens=usage.get('completion_tokens', usage.get('candidatesTokenCount')),
+        total_tokens=usage.get('total_tokens', usage.get('totalTokenCount')),
+        retry_count=max(0,job.attempts-1), validation_result=validation,
+        fallback_used=bool(job.route_index)), ensure_ascii=False))
+
+
 def execute_script(job_id, owner):
     try:
+        enrich_job(job_id, owner)
         with session_scope() as session:
             job = owned_job(session, job_id, owner)
             if not job:
@@ -266,8 +344,8 @@ def execute_script(job_id, owner):
                         job.status, job.error_kind, job.error = 'failed', 'validation_error', 'API trả lời nhưng output không đạt validator'
                     job.finished_at, job.owner, job.lease_until = utcnow(), None, None
                 else:
-                    add_version(session, job, result, data)
-                if job.error_kind == 'validation_error':
+                    repair_or_finish(session, job, result, data)
+                if job.kind == 'connection_test' and job.error_kind == 'validation_error':
                     from app.models import LLMAttempt
                     attempt = session.scalar(select(LLMAttempt).where(LLMAttempt.job_id==job.id, LLMAttempt.number==job.attempts))
                     attempt.error_kind='validation_error';attempt.error=job.error;attempt.status='failed'
@@ -279,7 +357,8 @@ def execute_script(job_id, owner):
             if job.event_id:
                 lock_event(session, job.event_id)
             control.finish_attempt(session, job, error=exc)
-            job.logs = [*job.logs, dict(attempt=job.attempts, at=utcnow().isoformat(), http_status=exc.status,
+            log_generation(job, exc, 'provider_error:' + exc.kind, list(job.source_details))
+            job.logs = [*job.logs, dict(attempt=job.attempts, provider=job.provider, model=job.model, at=utcnow().isoformat(), http_status=exc.status,
                                       request_id=exc.request_id, error=redact(str(exc)), elapsed=exc.elapsed,
                                       usage=exc.usage, unknown_outcome=exc.uncertain)]
             if exc.raw and job.snapshot_id:
