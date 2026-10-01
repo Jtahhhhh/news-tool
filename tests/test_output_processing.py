@@ -47,3 +47,16 @@ def test_repair_feedback_names_exact_error_without_echoing_payload():
     feedback = validation_feedback(error.value)
     assert 'hook must equal first scene narration' in feedback
     assert 'private-output-content' not in feedback and 'input_value' not in feedback
+
+
+def test_grounding_reports_all_claims_and_scenes_in_one_repair():
+    payload = generated()
+    payload['claims'][0]['text'] += ' bảo đảm tương lai'
+    payload['claims'].append({**payload['claims'][0], 'claim_id':'c2','text':'999 chỗ ngồi'})
+    payload['scenes'][0]['narration'] += ' miễn học phí'
+    payload['hook'] = payload['scenes'][0]['narration']
+    with pytest.raises(GroundingError) as error:
+        validate_generated_output(input_data(), json.dumps(payload))
+    message = validation_feedback(error.value)
+    assert 'claim c1' in message and 'claim c2' in message and 'scene 1' in message
+    assert 'trích dẫn' in message and 'tương' in message

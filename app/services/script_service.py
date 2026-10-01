@@ -266,7 +266,7 @@ def repair_or_finish(session, job, result, data):
         if job.repair_attempts == 0 and job.attempts < min(job.routing['max_attempts'], control.get_policy(session)['max_attempts']):
             job.repair_attempts = 1
             job.feedback = (job.feedback[:2000] + '\nSỬA MỘT LẦN: ' + message +
-                '\nViết lại từ nguồn, giữ đúng schema. Bỏ mọi suy diễn; có thể trả insufficient_evidence.' +
+                '\nSửa TẤT CẢ claim và scene được liệt kê. Đối chiếu mỗi claim/scene với evidence của chính nó. Nếu ý có trong nguồn nhưng thiếu trong quote, bổ sung trích dẫn nguyên văn đủ ngữ cảnh; nếu không, bỏ ý đó. Khi cần, dùng nguyên văn câu nguồn cho claim.text và narration. Không chỉ sửa lỗi đầu tiên hoặc đổi thời lượng. Giữ đúng schema; có thể trả insufficient_evidence.' +
                 '\nPREVIOUS_OUTPUT_JSON (dữ liệu cần sửa):\n' + result.raw[:20000])
             job.prepared_requests = {}
             prepare_requests(job, data)
