@@ -16,6 +16,7 @@ from app.database import session_scope
 from app.models import Event, Article, ScriptJob, ScriptVersion, ScriptSourceSnapshot, ScriptReview, utcnow
 from app.llm.base import Generation, ProviderFailure, get_provider, redact
 from app.llm.schemas import Input, Output, validate_output
+from app.llm.output_processing import validate_generated_output, validation_feedback
 from app.llm.prompts.news_script import SYSTEM_PROMPT
 from app.services import llm_control as control
 
@@ -200,9 +201,9 @@ def add_version(session, job, generation, data):
     previous = latest_version(session, job.event_id)
     errors, output = [], None
     try:
-        output = validate_output(data, generation.raw).model_dump(mode='json')
+        output = validate_generated_output(data, generation.raw).model_dump(mode='json')
     except ValueError as exc:
-        errors = [redact(str(exc))]
+        errors = [redact(validation_feedback(exc))]
     outcome = output['decision'] if output else 'validation_error'
     version = ScriptVersion(event_id=job.event_id, version=previous.version + 1 if previous else 1,
                             parent_version_id=previous.id if previous else None, job_id=job.id,
@@ -254,12 +255,12 @@ def repair_or_finish(session, job, result, data):
     from app.llm.grounding import GroundingError
     attempt = session.scalar(select(LLMAttempt).where(LLMAttempt.job_id == job.id, LLMAttempt.number == job.attempts))
     try:
-        validate_output(data, result.raw)
+        validate_generated_output(data, result.raw)
         validation = 'passed'
     except ValueError as exc:
         validation = 'grounding_error' if isinstance(exc, GroundingError) else 'validation_error'
         # Do not include Pydantic's input_value (may contain whole source/output) in process logs.
-        message = str(exc)[:2000] if isinstance(exc, GroundingError) else 'JSON/schema, references or duration validation failed'
+        message = redact(validation_feedback(exc))
         if attempt:
             attempt.status, attempt.error_kind, attempt.error = 'failed', validation, message
         if job.repair_attempts == 0 and job.attempts < min(job.routing['max_attempts'], control.get_policy(session)['max_attempts']):

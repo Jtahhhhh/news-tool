@@ -181,6 +181,21 @@ def test_401_failfast_and_no_fallback(db,groq_job,monkeypatch):
         assert job.attempts==1 and job.status=='failed' and job.provider=='groq'
 
 
+def test_generated_hook_is_normalized_before_repair_and_draft(db,groq_job,monkeypatch):
+    class Adapter(FakeProvider):
+        def generate_script(self,data,prompt,feedback=''):
+            payload=draft(data);payload['hook']='Tiêu đề riêng do model tạo'
+            return Generation(json.dumps(payload))
+    monkeypatch.setattr('app.services.script_service.get_provider',lambda *args:Adapter('mock'))
+    execute(db,groq_job)
+    with db() as session:
+        job=session.get(ScriptJob,groq_job);version=session.scalar(select(ScriptVersion))
+        assert job.status=='succeeded' and job.attempts==1 and job.repair_attempts==0
+        assert version.data['hook']==version.data['scenes'][0]['narration']
+        assert json.loads(version.raw_output)['hook']=='Tiêu đề riêng do model tạo'
+        assert version.status=='needs_review'
+
+
 def test_article_cleaning_redirect_revalidation_and_rss_fallback(monkeypatch):
     from app.services import article_text
     monkeypatch.setattr(article_text,'validate_public_url',lambda url: url if 'example.com' in url else (_ for _ in ()).throw(ValueError('private')))
