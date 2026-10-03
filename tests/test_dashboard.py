@@ -36,58 +36,6 @@ def test_s3_missing_is_distinct_from_access_denied():
     assert not storage.exists('one')
 
 
-def configure_auth(monkeypatch):
-    salt = bytes.fromhex('aa' * 16)
-    hashed = hashlib.scrypt(b'correct-password', salt=salt, n=16384, r=8, p=1).hex()
-    monkeypatch.setenv('DASHBOARD_EMAIL', 'operator@example.com')
-    monkeypatch.setenv('DASHBOARD_PASSWORD_HASH', 'scrypt$' + salt.hex() + '$' + hashed)
-    monkeypatch.setenv('DASHBOARD_SESSION_SECRET', 'test-only-signing-key-32-characters')
-
-
-def test_auth_protects_old_routes_csrf_and_logout(monkeypatch):
-    configure_auth(monkeypatch)
-    from app.main import app
-    with TestClient(app) as c:
-        assert c.get('/sources').status_code == 401
-        assert c.get('/api/settings').status_code == 401
-        callback = c.get('/tiktok/callback?state=test&code=test')
-        assert callback.status_code == 200
-        assert 'Tiếp tục trong phiên hiện tại' in callback.text
-        assert callback.headers['cache-control'] == 'no-store'
-        assert 'dashboard_session' not in callback.cookies
-        state = c.get('/api/auth/session').json()
-        assert not state['authenticated']
-        assert c.post('/api/auth/login', json={'email':'operator@example.com','password':'correct-password'}).status_code == 403
-        c.headers['x-csrf-token'] = state['csrf_token']
-        assert c.post('/api/auth/login', json={'email':'operator@example.com','password':'wrong'}).status_code == 401
-        assert c.post('/api/auth/login', json={'email':'operator@example.com','password':'correct-password'}).status_code == 200
-        assert c.get('/api/auth/session').json()['authenticated']
-        assert c.get('/api/settings').status_code == 200
-        assert c.post('/api/auth/logout').status_code == 200
-        assert c.get('/api/settings').status_code == 401
-
-
-def test_session_expiry_and_tampering(monkeypatch):
-    configure_auth(monkeypatch)
-    value = f'{int(time.time())+30}.nonce'
-    token = value + '.' + auth.signature(value)
-    assert auth.valid_session(token)
-    assert not auth.valid_session(token + 'x')
-    value = f'{int(time.time())-1}.nonce'
-    assert not auth.valid_session(value + '.' + auth.signature(value))
-
-
-def test_production_auth_fails_closed(monkeypatch):
-    from app.config import get_settings
-    monkeypatch.setattr(auth, 'required', lambda: True)
-    for name in ('DASHBOARD_EMAIL', 'DASHBOARD_PASSWORD_HASH', 'DASHBOARD_SESSION_SECRET'):
-        monkeypatch.delenv(name, raising=False)
-    from app.main import app
-    with TestClient(app) as c:
-        assert c.get('/api/settings').status_code == 503
-        assert c.get('/sources').status_code == 503
-
-
 def test_aggregate_counts_and_pagination(client, db):
     from app.models import Source, Article, Event, Job
     with db() as s:

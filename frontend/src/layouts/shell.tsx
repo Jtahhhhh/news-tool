@@ -123,13 +123,14 @@ export function Shell({
                   await post("/api/auth/logout");
                   client.clear();
                   logout();
+                  window.location.assign("/login");
                 }}
               >
-                <LogOut size={14} />
+                <LogOut size={14} /> Logout
               </Button>
             )}
-            <div className="user-avatar" title="Editorial workspace">
-              N
+            <div className="user-avatar" title="Admin">
+              Admin
             </div>
           </div>
         </header>

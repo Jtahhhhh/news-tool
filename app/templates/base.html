@@ -16,7 +16,8 @@
 <body>
 <nav class="navbar navbar-dark bg-dark"><div class="container-fluid shell">
   <a class="navbar-brand fw-bold" href="/selection">NEWS<span class="brand-dot">●</span>TOOL</a>
-  <span class="text-light small">Bàn biên tập tin tức</span>
+  <div class="d-flex gap-3"><a class="text-light" href="/articles">News</a><a class="text-light" href="/scripts">Scripts</a><a class="text-light" href="/videos">Videos</a><a class="text-light" href="/publishing">Publish</a></div>
+  <div class="text-light">Admin <form method="post" action="/logout" style="display:inline"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><button class="btn btn-outline-light btn-sm" type="submit">Logout</button></form></div>
 </div></nav>
 <div class="shell layout">
   <aside><p class="section-label">KHÔNG GIAN LÀM VIỆC</p>

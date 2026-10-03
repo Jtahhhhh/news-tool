@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', extra='ignore', hide_input_in_errors=True)
     app_env: str = 'local'
     debug: bool = False
+    admin_username: str = ''
+    admin_password: str = Field('', repr=False)
+    auth_secret_key: str = Field('', repr=False)
+    session_secure: bool = False
     db_host: str = 'localhost'
     db_port: int = 5432
     postgres_db: str = 'news_tool'

@@ -1,6 +1,14 @@
 import secrets
 from pathlib import Path
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
+from contextlib import asynccontextmanager
+from app.dashboard_auth import bootstrap_admin, require_admin, secure_cookie
+
+@asynccontextmanager
+async def lifespan(app):
+    bootstrap_admin()
+    yield
+
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -8,7 +16,7 @@ from sqlalchemy import text
 from app.database import session_scope
 
 BASE_DIR = Path(__file__).resolve().parent
-app = FastAPI(title='News Tool', version='0.1.0')
+app = FastAPI(title='News Tool', version='0.1.0', lifespan=lifespan)
 templates = Jinja2Templates(directory=BASE_DIR / 'templates')
 app.mount('/static', StaticFiles(directory=BASE_DIR / 'static'), name='static')
 
@@ -28,7 +36,7 @@ async def csrf_protection(request: Request, call_next):
             return HTMLResponse('CSRF token không hợp lệ. Tải lại trang rồi thử lại.', status_code=403)
     response = await call_next(request)
     if not request.cookies.get('csrf_token'):
-        response.set_cookie('csrf_token', token, httponly=True, samesite='strict', secure=request.url.scheme == 'https')
+        response.set_cookie('csrf_token', token, httponly=True, samesite='strict', secure=secure_cookie())
     return response
 
 
@@ -45,21 +53,21 @@ def health():
     with session_scope() as session:
         session.execute(text('SELECT 1'))
         revision = session.execute(text('SELECT version_num FROM alembic_version')).scalar()
-        if revision != '0009':
+        if revision != '0010':
             raise HTTPException(503, 'Migration chưa hoàn tất')
     return {'status': 'ok'}
 
 
 from app.routes.web import router  # noqa: E402
-app.include_router(router)
+app.include_router(router, dependencies=[Depends(require_admin)])
 from app.routes.scripts import router as scripts_router  # noqa: E402
-app.include_router(scripts_router)
+app.include_router(scripts_router, dependencies=[Depends(require_admin)])
 from app.routes.llm_control import router as llm_control_router  # noqa: E402
-app.include_router(llm_control_router)
+app.include_router(llm_control_router, dependencies=[Depends(require_admin)])
 from app.routes.video import router as video_router  # noqa: E402
-app.include_router(video_router)
+app.include_router(video_router, dependencies=[Depends(require_admin)])
 from app.routes.publishing import router as publishing_router  # noqa: E402
-app.include_router(publishing_router)
+app.include_router(publishing_router, dependencies=[Depends(require_admin)])
 
 
 @app.middleware('http')
@@ -77,11 +85,11 @@ async def safe_validation_error(request, exc):
     return JSONResponse({'detail':[{'loc':e['loc'],'type':e['type'],'msg':e['msg']} for e in exc.errors()]},status_code=422)
 
 from app.routes.video_editor import router as video_editor_router
-app.include_router(video_editor_router)
+app.include_router(video_editor_router, dependencies=[Depends(require_admin)])
 
 from app.routes.dashboard import router as dashboard_router
 from app.dashboard_auth import router as auth_router, protect
-app.include_router(dashboard_router)
+app.include_router(dashboard_router, dependencies=[Depends(require_admin)])
 app.include_router(auth_router)
 app.middleware('http')(protect)
 
@@ -98,8 +106,8 @@ frontend = BASE_DIR.parent / 'frontend' / 'dist'
 if frontend.is_dir():
     app.mount('/dashboard/assets', StaticFiles(directory=frontend / 'assets'), name='dashboard-assets')
 
-    @app.get('/dashboard')
-    @app.get('/dashboard/{path:path}')
+    @app.get('/dashboard', dependencies=[Depends(require_admin)])
+    @app.get('/dashboard/{path:path}', dependencies=[Depends(require_admin)])
     def dashboard_spa(path: str = ''):
         from fastapi.responses import FileResponse
         return FileResponse(frontend / 'index.html')

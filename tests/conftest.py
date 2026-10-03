@@ -21,10 +21,17 @@ def db():
 
 
 @pytest.fixture
-def client(db):
+def client(db, monkeypatch):
+    monkeypatch.setenv("ADMIN_USERNAME", "test-admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "test-password")
+    monkeypatch.setenv("AUTH_SECRET_KEY", "test-secret-key-with-at-least-32-characters")
+    from app.config import get_settings
+    get_settings.cache_clear()
     from fastapi.testclient import TestClient
     from app.main import app
     with TestClient(app) as client:
-        client.get('/sources')
+        client.get('/login')
         client.headers['x-csrf-token'] = client.cookies['csrf_token']
+        assert client.post('/login', data={'username': 'test-admin', 'password': 'test-password'}, follow_redirects=False).status_code == 303
         yield client
+    get_settings.cache_clear()

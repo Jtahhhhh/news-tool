@@ -42,17 +42,16 @@ cd ..
 python -m app.start
 ```
 
-The Dockerfile builds the frontend in a Node stage and serves it through FastAPI (deployment Option B). This preserves same-origin HttpOnly sessions and the existing editor, OAuth and media routes. `VITE_API_URL` is empty by default. For development run `pnpm dev`; its `/api` proxy targets port 8000. For a separate frontend origin, set `VITE_API_URL` and explicit comma-separated `CORS_ORIGINS`. Cookie authentication requires same-site HTTPS domains; unrelated Render subdomains may not work with strict same-site cookies. A standalone Static Site requires an appropriate same-origin reverse proxy or a separately designed cross-site cookie policy; this is not currently provided.
+The Dockerfile builds the frontend in a Node stage and serves it through FastAPI (deployment Option B). This preserves same-origin HttpOnly sessions and the existing editor, OAuth and media routes. `VITE_API_URL` is empty by default. For development run `pnpm dev`; its `/api` proxy targets port 8000. For a separate frontend origin, set `VITE_API_URL` and explicit comma-separated `CORS_ORIGINS`. Cookie authentication requires same-site HTTPS domains; unrelated Render subdomains may not work with same-site cookies. A standalone Static Site requires an appropriate same-origin reverse proxy or a separately designed cross-site cookie policy; this is not currently provided.
 
 Set these **backend-only** environment variables before exposing production:
 
-- `DASHBOARD_EMAIL`
-- `DASHBOARD_PASSWORD_HASH` generated with `python scripts/dashboard_password.py`
-- `DASHBOARD_SESSION_SECRET`, a random secret of at least 32 characters
+- `ADMIN_USERNAME`: username used only on initial bootstrap.
+- `ADMIN_PASSWORD`: initial password, stored only as a salted scrypt hash. Remove from environment after first successful startup; subsequent startups never reset it.
+- `AUTH_SECRET_KEY`: random secret of at least 32 characters; keep stable across replicas and restarts. Rotation invalidates all sessions.
+- `SESSION_SECURE=true` on Render/HTTPS. Production always uses Secure cookies.
 
-Production denies protected routes when these values are missing. Login sessions expire after 8 hours. All old routes, media and APIs require authentication in production; `/health`, login/session and static dashboard files remain public. CSRF applies to login and mutations. Configure HTTPS and rate limiting at the ingress. Change the signing secret to invalidate all sessions. Local mode without credentials remains available for development.
-
-The session cookie retains `SameSite=Strict`. A return from TikTok without that cookie shows a no-store continuation page; the user follows a same-site link before the protected callback exchanges any code. This handshake still requires real TikTok OAuth verification before production release. A proposed switch to Lax was rejected by automatic approval review; no cookie-policy relaxation was applied.
+Run migrations before starting the web app (`python -m app.start`). Startup fails if the signing key is missing, or bootstrap credentials are missing on an empty database. Authentication is required in local mode too. GET/POST `/login` and POST `/logout` support the standalone login form; dashboard API aliases remain available. Anonymous pages redirect to `/login`; APIs return 401. Sessions persist for eight hours in the database, and logout revokes the session so a copied cookie cannot be replayed. Cookies use HttpOnly and SameSite=Lax; CSRF protection remains enabled. There are no registration, password recovery, roles, or user management endpoints.
 
 Use persistent `MEDIA_ROOT` storage for all workers. Storage adapter classes support local and injected S3/B2 clients, including short-lived presigned URLs, but current render/publish workers still use their local shared media paths. **Object-storage durability across redeploys is not implemented by these adapters alone.**
 

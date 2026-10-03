@@ -101,3 +101,20 @@ from .scripts import ScriptJob, ScriptVersion, ScriptSourceSnapshot, ScriptRevie
 from .llm_control import LLMCredential, LLMQuotaState, LLMProviderHealth, LLMAttempt, LLMPolicy  # noqa: E402
 from .video import MediaAsset, TTSAudio, VideoJob, VideoVersion, VideoReview  # noqa: E402
 from .publishing import TikTokAccount, TikTokOAuthState, PublishJob, PublishAttempt  # noqa: E402
+
+
+class AdminUser(Base):
+    __tablename__ = 'admin_users'
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    username: Mapped[str] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint('id = 1', name='single_admin'),)
+
+
+class AdminSession(Base):
+    __tablename__ = 'admin_sessions'
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    admin_id: Mapped[int] = mapped_column(ForeignKey('admin_users.id', ondelete='CASCADE'))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

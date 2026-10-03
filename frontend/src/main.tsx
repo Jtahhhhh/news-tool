@@ -17,7 +17,7 @@ const client = new QueryClient({
 function App() {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +41,7 @@ function App() {
     const expired = () => {
       setAuthenticated(false);
       client.clear();
+      window.location.assign("/login");
     };
     window.addEventListener("session-expired", expired);
     return () => window.removeEventListener("session-expired", expired);
@@ -59,7 +60,7 @@ function App() {
             e.preventDefault();
             setBusy(true);
             try {
-              await post("/api/auth/login", { email, password });
+              await post("/api/auth/login", { username, password });
               setPassword("");
               await session();
             } catch (e) {
@@ -69,7 +70,7 @@ function App() {
             }
           }}
         >
-          <div className="brand">newsroom.</div>
+          <div className="brand">NEWS TOOL</div>
           <h1>Welcome back</h1>
           <p>Sign in to your editorial workspace.</p>
           {error && (
@@ -81,13 +82,13 @@ function App() {
             </p>
           )}
           <label>
-            Email
+            Username
             <input
-              type="email"
+              type="text"
               autoComplete="username"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </label>
           <label>

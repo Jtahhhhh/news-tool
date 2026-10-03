@@ -1,42 +1,34 @@
-"""Single-operator, signed HttpOnly sessions. Configuration fails closed in production."""
+"""One persistent administrator, with revocable eight-hour sessions."""
 import hashlib
 import hmac
-import os
 import secrets
 import time
 from collections import OrderedDict
+from datetime import timedelta
 from threading import Lock
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import APIRouter, Request, HTTPException, Form, Depends
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import delete, text
+from app.config import get_settings
+from app.database import session_scope
+from app.models import AdminUser, AdminSession, utcnow
 
-router = APIRouter(prefix='/api/auth')
+router = APIRouter()
 COOKIE = 'dashboard_session'
 attempts = OrderedDict()
 attempt_lock = Lock()
 
 
-def configured():
-    return (all(os.getenv(k) for k in ('DASHBOARD_EMAIL', 'DASHBOARD_PASSWORD_HASH', 'DASHBOARD_SESSION_SECRET'))
-            and len(os.getenv('DASHBOARD_SESSION_SECRET', '')) >= 32)
+def secure_cookie():
+    settings = get_settings()
+    return settings.app_env == 'production' or settings.session_secure
 
 
-def required():
-    from app.config import get_settings
-    return get_settings().app_env == 'production' or any(os.getenv(k) for k in ('DASHBOARD_EMAIL', 'DASHBOARD_PASSWORD_HASH', 'DASHBOARD_SESSION_SECRET'))
-
-
-def signature(value):
-    return hmac.new(os.environ['DASHBOARD_SESSION_SECRET'].encode(), value.encode(), hashlib.sha256).hexdigest()
-
-
-def valid_session(token):
-    if not configured(): return False
-    try:
-        expires, nonce, sig = token.split('.')
-        return int(expires) > time.time() and hmac.compare_digest(signature(f'{expires}.{nonce}'), sig)
-    except (ValueError, TypeError):
-        return False
+def password_hash(password):
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1).hex()
+    return f'scrypt${salt.hex()}${digest}'
 
 
 def password_matches(password, encoded):
@@ -49,48 +41,81 @@ def password_matches(password, encoded):
         return False
 
 
+def bootstrap_admin():
+    settings = get_settings()
+    if len(settings.auth_secret_key) < 32:
+        raise RuntimeError('AUTH_SECRET_KEY must contain at least 32 characters')
+    with session_scope() as db:
+        # Serialize bootstrap across web replicas; the singleton constraint also guards it.
+        if db.bind.dialect.name == 'postgresql':
+            db.execute(text('SELECT pg_advisory_xact_lock(721002)'))
+        if db.get(AdminUser, 1) is None:
+            if not settings.admin_username or len(settings.admin_username) > 254 or not settings.admin_password:
+                raise RuntimeError('Initial startup requires ADMIN_USERNAME and ADMIN_PASSWORD')
+            db.add(AdminUser(id=1, username=settings.admin_username,
+                             password_hash=password_hash(settings.admin_password)))
+
+
+def token_hash(token):
+    return hmac.new(get_settings().auth_secret_key.encode(), token.encode(), hashlib.sha256).hexdigest()
+
+
+def valid_session(token):
+    if not token or len(token) > 128 or len(get_settings().auth_secret_key) < 32:
+        return False
+    with session_scope() as db:
+        session = db.get(AdminSession, token_hash(token))
+        return bool(session and session.expires_at.replace(tzinfo=utcnow().tzinfo) > utcnow())
+
+
+def require_admin(request: Request):
+    if not getattr(request.state, 'admin_authenticated', False):
+        if not valid_session(request.cookies.get(COOKIE, '')):
+            raise HTTPException(401, 'Đăng nhập để tiếp tục')
+        request.state.admin_authenticated = True
+    return 1
+
+
+def is_api(path):
+    return path.startswith(('/api/', '/script-jobs', '/video-jobs', '/publish-jobs', '/assets'))
+
+
 async def protect(request: Request, call_next):
     path = request.url.path
-    public = path in ('/health', '/api/auth/session', '/api/auth/login') or path.startswith(('/dashboard', '/static/'))
-    if required() and not public:
-        if not configured(): return JSONResponse({'detail': 'Dashboard authentication is not configured'}, status_code=503)
-        if not valid_session(request.cookies.get(COOKIE, '')):
-            if path == '/tiktok/callback':
-                # A cross-site OAuth navigation does not send Strict cookies.
-                # A deliberate same-site navigation can resume the callback;
-                # no code is exchanged and no account is changed on this page.
-                from html import escape
-                from urllib.parse import urlencode
-                query = urlencode({k: request.query_params[k] for k in ('state', 'code', 'error') if k in request.query_params})
-                target = escape('/tiktok/callback?' + query, quote=True)
-                return HTMLResponse('<!doctype html><html lang="vi"><meta name="referrer" content="no-referrer">'
-                    '<title>Tiếp tục kết nối TikTok</title><h1>Tiếp tục kết nối TikTok</h1>'
-                    '<p>Phiên đăng nhập được bảo vệ bằng cookie Strict. Nếu đã đăng nhập, chọn tiếp tục.</p>'
-                    f'<a href="{target}">Tiếp tục trong phiên hiện tại</a>'
-                    '<p>Nếu chưa đăng nhập, <a href="/dashboard/" target="_blank" rel="noreferrer">đăng nhập</a> rồi quay lại đây.</p></html>',
-                    headers={'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
-                             'Content-Security-Policy': "default-src 'none'; base-uri 'none'; frame-ancestors 'none'"})
-            return JSONResponse({'detail': 'Đăng nhập để tiếp tục'}, status_code=401)
+    public = path in ('/health', '/login', '/api/auth/session', '/api/auth/login') or path.startswith(('/static/', '/dashboard/assets/'))
+    if not public:
+        try:
+            require_admin(request)
+        except HTTPException:
+            if is_api(path) or request.method != 'GET':
+                return JSONResponse({'detail': 'Đăng nhập để tiếp tục'}, status_code=401)
+            return RedirectResponse('/login', status_code=303)
     response = await call_next(request)
-    if path.startswith('/api/'):
+    if not path.startswith(('/static/', '/dashboard/assets/')):
         response.headers['Cache-Control'] = 'no-store'
     return response
 
 
-@router.get('/session')
+@router.get('/login')
+def login_page(request: Request):
+    from app.main import templates
+    if valid_session(request.cookies.get(COOKIE, '')):
+        return RedirectResponse('/', status_code=303)
+    return templates.TemplateResponse(request=request, name='login.html', context={})
+
+
+@router.get('/api/auth/session')
 def session(request: Request):
-    return {'authenticated': not required() or valid_session(request.cookies.get(COOKIE, '')),
-            'required': required(), 'csrf_token': request.state.csrf_token}
+    return {'authenticated': valid_session(request.cookies.get(COOKIE, '')),
+            'required': True, 'csrf_token': request.state.csrf_token}
 
 
 class Login(BaseModel):
-    email: str = Field(max_length=254)
-    password: str = Field(max_length=1024)
+    username: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=1024, repr=False)
 
 
-@router.post('/login')
-def login(payload: Login, request: Request):
-    if not configured(): raise HTTPException(503, 'Chưa cấu hình đăng nhập')
+def authenticate(username, password, request, response):
     peer = request.client.host if request.client else 'unknown'
     now = time.monotonic()
     with attempt_lock:
@@ -100,19 +125,41 @@ def login(payload: Login, request: Request):
         attempts[peer] = (count + 1, start)
         attempts.move_to_end(peer)
         while len(attempts) > 5000: attempts.popitem(last=False)
-    # Perform the expensive password check even when the email differs.
-    ok = password_matches(payload.password, os.environ['DASHBOARD_PASSWORD_HASH'])
-    if not ok or not hmac.compare_digest(payload.email.encode(), os.environ['DASHBOARD_EMAIL'].encode()):
-        raise HTTPException(401, 'Email hoặc mật khẩu không đúng')
+    token = secrets.token_urlsafe(32)
+    with session_scope() as db:
+        admin = db.get(AdminUser, 1)
+        if admin is None: raise HTTPException(503, 'Admin chưa được cấu hình')
+        ok = password_matches(password, admin.password_hash)
+        if not ok or not hmac.compare_digest(username.encode(), admin.username.encode()):
+            raise HTTPException(401, 'Username hoặc mật khẩu không đúng')
+        admin.last_login_at = utcnow()
+        old = request.cookies.get(COOKIE, '')
+        db.execute(delete(AdminSession).where((AdminSession.expires_at <= utcnow()) | (AdminSession.token_hash == token_hash(old))))
+        db.add(AdminSession(token_hash=token_hash(token), admin_id=1, expires_at=utcnow() + timedelta(hours=8)))
     with attempt_lock: attempts.pop(peer, None)
-    value = f'{int(time.time()) + 28800}.{secrets.token_hex(16)}'
-    response = JSONResponse({'authenticated': True})
-    response.set_cookie(COOKIE, f'{value}.{signature(value)}', httponly=True, secure=request.url.scheme == 'https', samesite='strict', max_age=28800)
+    response.set_cookie(COOKIE, token, httponly=True, secure=secure_cookie(), samesite='lax', max_age=28800)
     return response
 
 
-@router.post('/logout')
-def logout():
-    response = JSONResponse({'authenticated': False})
-    response.delete_cookie(COOKIE)
+@router.post('/login')
+def form_login(request: Request, username: str = Form(max_length=254), password: str = Form(max_length=1024)):
+    from app.main import templates
+    try:
+        return authenticate(username, password, request, RedirectResponse('/', status_code=303))
+    except HTTPException as exc:
+        return templates.TemplateResponse(request=request, name='login.html', context={'error': exc.detail}, status_code=exc.status_code)
+
+
+@router.post('/api/auth/login')
+def login(payload: Login, request: Request):
+    return authenticate(payload.username, payload.password, request, JSONResponse({'authenticated': True}))
+
+
+@router.post('/logout', dependencies=[Depends(require_admin)])
+@router.post('/api/auth/logout', dependencies=[Depends(require_admin)])
+def logout(request: Request):
+    with session_scope() as db:
+        db.execute(delete(AdminSession).where(AdminSession.token_hash == token_hash(request.cookies.get(COOKIE, ''))))
+    response = JSONResponse({'authenticated': False}) if request.url.path.startswith('/api/') else RedirectResponse('/login', status_code=303)
+    response.delete_cookie(COOKIE, httponly=True, secure=secure_cookie(), samesite='lax')
     return response
