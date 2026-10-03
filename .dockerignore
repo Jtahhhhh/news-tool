@@ -9,3 +9,5 @@ script-api-lab/.env
 __pycache__
 .pytest_cache
 *.egg-info
+frontend/node_modules
+frontend/dist

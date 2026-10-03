@@ -67,6 +67,10 @@ services:
         required: false
     environment:
       <<: [*env, *tiktok]
+      DASHBOARD_EMAIL: ${DASHBOARD_EMAIL:-}
+      DASHBOARD_PASSWORD_HASH: ${DASHBOARD_PASSWORD_HASH:-}
+      DASHBOARD_SESSION_SECRET: ${DASHBOARD_SESSION_SECRET:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       GEMINI_API_KEY: ""
       DEEPSEEK_API_KEY: ""
       GROQ_API_KEY: ""

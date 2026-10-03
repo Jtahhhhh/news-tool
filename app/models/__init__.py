@@ -56,6 +56,16 @@ class Article(Base):
     __table_args__ = (UniqueConstraint('source_id', 'fingerprint', name='uq_source_fingerprint'),)
 
 
+class PipelineItem(Base):
+    __tablename__ = 'pipeline_items'
+    event_id: Mapped[int] = mapped_column(ForeignKey('events.id', ondelete='CASCADE'), primary_key=True)
+    status: Mapped[str] = mapped_column(String(30), default='CRAWLED', index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Job(Base):
     __tablename__ = 'jobs'
     id: Mapped[int] = mapped_column(primary_key=True)

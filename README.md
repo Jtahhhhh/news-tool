@@ -1,5 +1,8 @@
 # News Tool
 
+Dashboard React mới ở `/dashboard/`: [audit, API, cách chạy và phần còn thiếu](docs/DASHBOARD.md).
+Production yêu cầu cấu hình đăng nhập trước khi truy cập. Docker tự build frontend.
+
 ## Tài liệu tiếng Việt
 
 - [Hướng dẫn sử dụng từ lấy tin đến duyệt video](docs/HUONG-DAN-SU-DUNG.md)

@@ -1,3 +1,11 @@
+FROM node:24-alpine AS dashboard
+WORKDIR /frontend
+RUN npm install --global pnpm@11.19.0
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm build
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
@@ -26,6 +34,7 @@ COPY app ./app
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY tests ./tests
+COPY --from=dashboard /frontend/dist ./frontend/dist
 
 USER newsroom
 

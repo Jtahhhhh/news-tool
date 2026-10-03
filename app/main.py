@@ -34,7 +34,7 @@ async def csrf_protection(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 async def error_page(request, exc):
-    if 'application/json' in request.headers.get('accept', '') or request.url.path.startswith(('/script-jobs','/video-jobs','/publish-jobs','/assets','/videos/')):
+    if 'application/json' in request.headers.get('accept', '') or request.url.path.startswith(('/api/','/script-jobs','/video-jobs','/publish-jobs','/assets','/videos/')):
         return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
     return templates.TemplateResponse(request=request, name='error.html',
                                       context={'detail': exc.detail}, status_code=exc.status_code)
@@ -45,7 +45,7 @@ def health():
     with session_scope() as session:
         session.execute(text('SELECT 1'))
         revision = session.execute(text('SELECT version_num FROM alembic_version')).scalar()
-        if revision != '0008':
+        if revision != '0009':
             raise HTTPException(503, 'Migration chưa hoàn tất')
     return {'status': 'ok'}
 
@@ -78,3 +78,28 @@ async def safe_validation_error(request, exc):
 
 from app.routes.video_editor import router as video_editor_router
 app.include_router(video_editor_router)
+
+from app.routes.dashboard import router as dashboard_router
+from app.dashboard_auth import router as auth_router, protect
+app.include_router(dashboard_router)
+app.include_router(auth_router)
+app.middleware('http')(protect)
+
+from fastapi.middleware.cors import CORSMiddleware
+import os
+origins = [value.strip() for value in os.getenv('CORS_ORIGINS', '').split(',') if value.strip()]
+if origins:
+    if '*' in origins:
+        raise RuntimeError('CORS_ORIGINS must contain explicit origins')
+    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
+                       allow_methods=['GET', 'POST', 'PATCH', 'DELETE'], allow_headers=['Content-Type', 'X-CSRF-Token'])
+
+frontend = BASE_DIR.parent / 'frontend' / 'dist'
+if frontend.is_dir():
+    app.mount('/dashboard/assets', StaticFiles(directory=frontend / 'assets'), name='dashboard-assets')
+
+    @app.get('/dashboard')
+    @app.get('/dashboard/{path:path}')
+    def dashboard_spa(path: str = ''):
+        from fastapi.responses import FileResponse
+        return FileResponse(frontend / 'index.html')

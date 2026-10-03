@@ -12,3 +12,10 @@ results/*.dump
 results/llm-integration/
 
 backups/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+results/dashboard-test-media/
+results/dashboard-pytest-*/
+results/dashboard-baseline.tar
+results/dashboard-*.png
