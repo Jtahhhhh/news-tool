@@ -50,6 +50,7 @@ def create(payload:CreateVideo):
         if script and script.provider=='fake' and not payload.test_only:
             raise HTTPException(409,'Kịch bản giả lập chỉ được dựng khi bật nhãn dữ liệu test')
         scenes=payload.scenes
+        composition=None
         if payload.parent_version_id:
             parent=s.get(VideoVersion,payload.parent_version_id)
             if not parent or parent.script_version_id!=payload.script_version_id:raise HTTPException(409,'Phiên bản gốc không thuộc kịch bản này')
@@ -57,7 +58,10 @@ def create(payload:CreateVideo):
             # the selected quality. Test labels and pronunciation rules cannot be lost.
             cfg={**parent.config,'quality':payload.quality,'width':cfg['width'],'height':cfg['height']}
             scenes=scenes or parent.timeline.get('scenes')
-        return job_json(enqueue(s,payload.script_version_id,payload.idempotency_key,cfg,scenes,payload.parent_version_id))
+            if parent.timeline.get('version') in (1,2):
+                composition=parent.timeline
+                cfg['preview_only']=False
+        return job_json(enqueue(s,payload.script_version_id,payload.idempotency_key,cfg,scenes,payload.parent_version_id,composition=composition))
 
 @router.get('/video-jobs/{job_id}')
 def job(job_id:int):
@@ -84,24 +88,37 @@ def retry(job_id:int):
 
 @router.post('/assets',status_code=201)
 async def upload(file:UploadFile=File(...),author:str=Form(''),license:str=Form('user-provided'),test_only:bool=Form(False)):
-    allowed={'image/jpeg':('.jpg','image'),'image/png':('.png','image'),'video/mp4':('.mp4','video')}
-    if file.content_type not in allowed:raise HTTPException(415,'Chỉ nhận JPEG, PNG hoặc MP4')
-    suffix,kind=allowed[file.content_type];content=await file.read(25_000_001)
-    if not content or len(content)>25_000_000:raise HTTPException(422,'File rỗng hoặc vượt 25 MB')
-    key=hashlib.sha256(content).hexdigest();path=ASSETS/(key+suffix)
-    if not path.exists():
-        temporary=ASSETS/(key+'.uploading'+suffix);temporary.write_bytes(content)
-        temporary.replace(path)
-    check=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,width,height,duration','-of','json',str(path)],capture_output=True,text=True,timeout=30)
-    try:streams=__import__('json').loads(check.stdout).get('streams',[])
-    except Exception:streams=[]
-    expected=kind
-    if check.returncode or not any(row.get('codec_type')==expected and row.get('width') and row.get('height') for row in streams):
-        path.unlink(missing_ok=True);raise HTTPException(422,'File media bị hỏng hoặc không đọc được')
+    from app.services.video.media_probe import EXTENSIONS, audit, prepare
+    from starlette.concurrency import run_in_threadpool
+    suffix=Path(file.filename or '').suffix.lower()
+    if suffix not in EXTENSIONS:raise HTTPException(415,'Định dạng chưa hỗ trợ. Chọn video, ảnh hoặc audio phổ biến.')
+    from app.config import get_settings
+    from app.services.video.project import describe
+    limit=get_settings().max_media_upload_mb*1024*1024
+    temporary=ASSETS/(uuid.uuid4().hex+'.uploading'+suffix)
+    size=0;checksum=hashlib.sha256()
+    try:
+        with temporary.open('wb') as target:
+            while chunk:=await file.read(1024*1024):
+                size+=len(chunk)
+                if size>limit:raise HTTPException(422,f'File vượt {get_settings().max_media_upload_mb} MB')
+                checksum.update(chunk);target.write(chunk)
+        if not size:raise HTTPException(422,'File rỗng')
+        media_probe=await run_in_threadpool(audit,temporary)
+        kind=media_probe['type']
+        key=checksum.hexdigest();path=ASSETS/(key+suffix)
+        if not path.exists():temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+        await file.close()
+    proxy=await run_in_threadpool(prepare,path,media_probe)
     with session_scope() as s:
         row=s.scalar(select(MediaAsset).where(MediaAsset.storage_key==str(path.relative_to(DATA)).replace('\\','/')))
         if not row:row=MediaAsset(filename=Path(file.filename or 'asset').name[:255],storage_key=str(path.relative_to(DATA)).replace('\\','/'),media_type=kind,source='upload',author=author[:200],license=license[:200],sha256=key,test_only=test_only);s.add(row);s.flush()
-        return {'id':row.id,'filename':row.filename,'media_type':row.media_type}
+        elif test_only:row.test_only=True
+        row.probe=media_probe
+        row.proxy_key=str(proxy.relative_to(DATA)).replace(chr(92),'/') if proxy else None
+        return {'id':row.id,'filename':row.filename,'media_type':row.media_type,**describe(row,DATA)}
 
 @router.get('/media/{kind}/{name}')
 def media(kind:Literal['assets','audio','video'],name:str):

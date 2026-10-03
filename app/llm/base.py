@@ -135,6 +135,9 @@ class LLMProvider(ABC):
                 body = response.json()
                 if not isinstance(body, dict):
                     raise ValueError('Expected a JSON object')
+                choices = body.get('choices')
+                if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                    diagnostic['finish_reason'] = redact(str(choices[0].get('finish_reason', '')))[:100]
                 raw, usage = self.parse_response(body)
             except (ValueError, KeyError, TypeError, IndexError, AttributeError) as exc:
                 raise ProviderFailure('Phản hồi không hoàn chỉnh: ' + str(exc),

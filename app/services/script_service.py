@@ -106,6 +106,7 @@ def prepare_requests(job, data):
     """Freeze source/schema and each allowed route payload before a worker can send."""
     from app.llm.registry import provider_class
     from app.llm.base import payload_hash
+    from app.llm.provider_schema import GROQ_SCHEMA_PROFILE
     if job.prepared_requests:
         return
     job.schema_snapshot = Output.model_json_schema()
@@ -118,9 +119,13 @@ def prepare_requests(job, data):
             adapter = cls(route['model'], timeout=job.timeout_seconds, output_limit=job.output_limit)
             adapter.schema = job.schema_snapshot
             endpoint, _, payload = adapter.build_request(data, job.prompt_text, job.feedback)
+        wire_schema = (payload['response_format']['json_schema']['schema']
+                       if route['provider'] == 'groq' else job.schema_snapshot)
         requests[route['provider'] + '/' + route['model']] = dict(endpoint=endpoint, payload=payload,
             payload_hash=payload_hash(payload), prompt_hash=digest(job.prompt_text),
             schema_hash=digest(job.schema_snapshot), snapshot_hash=digest(data.model_dump(mode='json')),
+            provider_schema_hash=digest(wire_schema),
+            provider_schema_profile=GROQ_SCHEMA_PROFILE if route['provider'] == 'groq' else 'internal',
             config_hash=digest(dict(route=route,routing=job.routing,timeout=job.timeout_seconds,output_limit=job.output_limit)))
     job.prepared_requests = requests
 

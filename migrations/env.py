@@ -1,5 +1,6 @@
 from alembic import context
-from app.database import engine, Base
+from app.database import create_db_engine, Base
+from app.config import get_settings
 import app.models  # noqa: F401
 
 
@@ -14,5 +15,7 @@ if context.is_offline_mode():
 elif context.config.attributes.get('connection') is not None:
     run(context.config.attributes['connection'])
 else:
+    engine = create_db_engine(get_settings(), migration=True)
     with engine.connect() as connection:
         run(connection)
+    engine.dispose()

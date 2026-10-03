@@ -12,13 +12,15 @@ class MediaAsset(Base):
     filename:Mapped[str]=mapped_column(String(255))
     storage_key:Mapped[str]=mapped_column(String(500),unique=True)
     media_type:Mapped[str]=mapped_column(String(20))
+    probe:Mapped[dict]=mapped_column(JSONB,default=dict,server_default=text("'{}'::jsonb"))
+    proxy_key:Mapped[str|None]=mapped_column(String(500))
     source:Mapped[str]=mapped_column(String(30),default='upload')
     author:Mapped[str]=mapped_column(String(200),default='')
     license:Mapped[str]=mapped_column(String(200),default='user-provided')
     sha256:Mapped[str]=mapped_column(String(64),index=True)
     test_only:Mapped[bool]=mapped_column(Boolean,default=False)
     created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
-    __table_args__=(CheckConstraint("media_type IN ('image','video')"),)
+    __table_args__=(CheckConstraint("media_type IN ('image','video','audio')",name='ck_media_asset_type'),)
 
 
 class TTSAudio(Base):

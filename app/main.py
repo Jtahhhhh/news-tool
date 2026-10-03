@@ -45,7 +45,7 @@ def health():
     with session_scope() as session:
         session.execute(text('SELECT 1'))
         revision = session.execute(text('SELECT version_num FROM alembic_version')).scalar()
-        if revision != '0007':
+        if revision != '0008':
             raise HTTPException(503, 'Migration chưa hoàn tất')
     return {'status': 'ok'}
 
@@ -75,3 +75,6 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 async def safe_validation_error(request, exc):
     # Never reflect an accidentally pasted secret or the original JSON body.
     return JSONResponse({'detail':[{'loc':e['loc'],'type':e['type'],'msg':e['msg']} for e in exc.errors()]},status_code=422)
+
+from app.routes.video_editor import router as video_editor_router
+app.include_router(video_editor_router)

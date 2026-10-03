@@ -54,6 +54,7 @@ def test_groq_request_and_parse_strict_schema():
         result=GroqProvider('openai/gpt-oss-120b','mock-only',client=client).generate_script(article(),'system')
     assert validate_output(article(),result.raw).decision=='draft'
     assert result.provider=='groq' and result.request_id=='groq-mock-1'
+    assert result.diagnostics['finish_reason'] == 'stop'
     schema=sent[0]['response_format']['json_schema']
     assert sent[0]['response_format']['type']=='json_schema' and schema['strict'] is True
     assert schema['schema']==Output.model_json_schema()

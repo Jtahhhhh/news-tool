@@ -1,5 +1,6 @@
 from .base import LLMProvider, ResponseContentError, user_content
 from .schemas import Output
+from .provider_schema import groq_schema
 
 
 class GroqProvider(LLMProvider):
@@ -13,7 +14,7 @@ class GroqProvider(LLMProvider):
                     {'role': 'user', 'content': user_content(data, feedback)}],
                  'response_format': {'type': 'json_schema', 'json_schema': {
                      'name': 'news_script', 'strict': True,
-                     'schema': getattr(self, 'schema', None) or Output.model_json_schema()}},
+                     'schema': groq_schema(getattr(self, 'schema', None) or Output.model_json_schema())}},
                  'max_completion_tokens': self.output_limit, 'reasoning_effort': 'low',
                  'temperature': 0.2, 'stream': False})
 

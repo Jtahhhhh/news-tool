@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-01",
+  "tests": {
+    "files": ["tests/test_scene_audit.py", "tests/test_groq.py", "tests/test_output_processing.py", "tests/test_request_trace.py"],
+    "passed": 73,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 18,
+    "seconds": 15.98,
+    "database": "news_tool_scene_audit_test",
+    "media_root": "/tmp/scene-audit-media",
+    "LLM_FETCH_ARTICLE": false,
+    "note": "Isolated copied source tree; mocked external generation. Initial test runner settings cache and live article-fetch environment were corrected before this final run."
+  },
+  "live_requests": 4,
+  "live_successful_http": 3,
+  "live_quota_errors": 1,
+  "live_valid_script_drafts": 0,
+  "stop_reason": "HTTP 429 tokens per minute limit; no further calls or credential rotation",
+  "source_extraction_matches_snapshot": true,
+  "new_comparison_renders": 0,
+  "production_deployed": false,
+  "git_diff_check": "passed",
+  "artifact_json_parse": "passed",
+  "common_api_credential_pattern_scan": "no matches"
+}

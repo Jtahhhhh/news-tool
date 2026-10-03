@@ -1,0 +1,177 @@
+{
+  "profile": "groq-strict-v1",
+  "schema": {
+    "$defs": {
+      "Claim": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "minLength": 1,
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "claim_id",
+          "text",
+          "evidence"
+        ],
+        "title": "Claim",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "quote": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "Scene": {
+        "additionalProperties": false,
+        "properties": {
+          "scene_id": {
+            "minimum": 1,
+            "title": "Scene Id",
+            "type": "integer"
+          },
+          "seconds": {
+            "maximum": 90,
+            "minimum": 1,
+            "title": "Seconds",
+            "type": "integer"
+          },
+          "narration": {
+            "minLength": 1,
+            "title": "Narration",
+            "type": "string"
+          },
+          "on_screen_text": {
+            "title": "On Screen Text",
+            "type": "string"
+          },
+          "visual_brief": {
+            "title": "Visual Brief",
+            "type": "string"
+          },
+          "claim_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Claim Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scene_id",
+          "seconds",
+          "narration",
+          "on_screen_text",
+          "visual_brief",
+          "claim_ids"
+        ],
+        "title": "Scene",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": "1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "story_id": {
+        "title": "Story Id",
+        "type": "string"
+      },
+      "decision": {
+        "enum": [
+          "draft",
+          "insufficient_evidence"
+        ],
+        "title": "Decision",
+        "type": "string"
+      },
+      "reason": {
+        "title": "Reason",
+        "type": "string"
+      },
+      "title": {
+        "title": "Title",
+        "type": "string"
+      },
+      "hook": {
+        "title": "Hook",
+        "type": "string"
+      },
+      "caption": {
+        "title": "Caption",
+        "type": "string"
+      },
+      "claims": {
+        "items": {
+          "$ref": "#/$defs/Claim"
+        },
+        "title": "Claims",
+        "type": "array"
+      },
+      "scenes": {
+        "items": {
+          "$ref": "#/$defs/Scene"
+        },
+        "title": "Scenes",
+        "type": "array"
+      },
+      "warnings": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Warnings",
+        "type": "array"
+      }
+    },
+    "required": [
+      "schema_version",
+      "story_id",
+      "decision",
+      "reason",
+      "title",
+      "hook",
+      "caption",
+      "claims",
+      "scenes",
+      "warnings"
+    ],
+    "title": "Output",
+    "type": "object"
+  }
+}
