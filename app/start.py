@@ -1,4 +1,5 @@
 import os
+import sys
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
@@ -43,5 +44,7 @@ if __name__ == '__main__':
         # Connection/driver exceptions may contain a URL, username or password.
         print('Database startup: FAILED. Check connection settings and migrations.',flush=True)
         raise SystemExit(1) from None
+    if '--prepare-only' in sys.argv:
+        raise SystemExit(0)
     # OAuth callback query strings contain one-time authorization codes.
     os.execvp('uvicorn', ['uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', os.getenv('PORT','8000'), '--no-access-log'])
