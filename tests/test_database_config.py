@@ -53,6 +53,49 @@ def test_reject_debug_and_invalid_url_without_secret():
     assert 'secret-sentinel' not in str(error.value)
 
 
+@pytest.mark.parametrize('app_env', [None, 'local', 'test', 'production'])
+def test_render_never_falls_back_to_local_dotenv(tmp_path, monkeypatch, app_env):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / '.env').write_text('DATABASE_URL=postgresql://u:secret@localhost/db\n')
+    monkeypatch.setenv('RENDER', 'true')
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+    monkeypatch.delenv('APP_ENV', raising=False)
+    if app_env is not None:
+        monkeypatch.setenv('APP_ENV', app_env)
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ValueError, match='APP_ENV=production|DATABASE_URL is not configured'):
+            get_settings()
+        if app_env in (None, 'production'):
+            monkeypatch.setenv('DATABASE_URL', 'postgres://u:secret@internal/db')
+            assert get_settings().app_env == 'production'
+            assert get_settings().db_url.host == 'internal'
+    finally:
+        get_settings.cache_clear()
+
+
+@pytest.mark.parametrize('host', ['localhost', 'LOCALHOST.', '127.0.0.1', '127.0.0.2', '[::1]'])
+@pytest.mark.parametrize('field', ['database_url', 'migration_database_url'])
+def test_production_rejects_loopback(host, field):
+    values = dict(app_env='production', database_url='postgres://u:secret@internal/db')
+    values[field] = f'postgres://u:secret@{host}/db'
+    with pytest.raises(ValueError, match='loopback'):
+        settings(**values)
+
+
+def test_production_diagnostic_hides_connection(capsys):
+    s = settings(app_env='production', database_url='postgres://private-user:secret@private-host/db')
+    for migration in (False, True):
+        engine = create_db_engine(s, migration=migration)
+        engine.dispose()
+    output = capsys.readouterr().out
+    assert 'DATABASE_URL_PRESENT=true' in output
+    assert 'ROLE=migration' in output and 'ROLE=application' in output
+    assert 'DB_PORT=5432' in output
+    for value in ('private-user', 'secret', 'private-host', 'postgres://'):
+        assert value not in output
+
+
 def test_transaction_rollback_reconnect_and_revision(db):
     from sqlalchemy import text
     from app.database import engine

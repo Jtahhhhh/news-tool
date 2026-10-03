@@ -10,6 +10,12 @@ class Base(DeclarativeBase):
 
 
 def create_db_engine(settings, *, migration=False):
+    if settings.app_env == 'production':
+        url = settings.migration_url if migration else settings.db_url
+        print(f'Database config: ENVIRONMENT=production '
+              f'DATABASE_URL_PRESENT={str(bool(settings.database_url)).lower()} '
+              f'ROLE={"migration" if migration else "application"} '
+              f'DB_HOST=<masked> DB_PORT={url.port or 5432}', flush=True)
     options = dict(pool_pre_ping=True, hide_parameters=True,
                    connect_args={'connect_timeout': settings.db_connect_timeout})
     if migration or settings.uses_pgbouncer:

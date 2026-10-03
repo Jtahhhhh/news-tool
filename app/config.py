@@ -5,6 +5,16 @@ from sqlalchemy import URL
 from sqlalchemy.engine import make_url
 from pydantic import model_validator
 import os
+from ipaddress import ip_address
+
+
+def is_loopback_host(host):
+    if host.lower().rstrip('.') == 'localhost':
+        return True
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def postgres_url(value):
@@ -39,11 +49,17 @@ class Settings(BaseSettings):
     def database_configuration(self):
         if self.app_env not in ('local','test','production'):
             raise ValueError('APP_ENV must be local, test or production')
-        if self.app_env == 'production' and (not self.database_url or self.debug):
-            raise ValueError('Production requires DATABASE_URL and DEBUG=false')
+        if self.app_env == 'production' and not self.database_url:
+            raise ValueError('Production requires DATABASE_URL: DATABASE_URL is not configured')
+        if self.app_env == 'production' and self.debug:
+            raise ValueError('Production requires DEBUG=false')
         if self.db_pool_mode not in ('auto','direct','pgbouncer'):
             raise ValueError('DB_POOL_MODE must be auto, direct or pgbouncer')
         if self.database_url: postgres_url(self.database_url)
+        if self.app_env == 'production':
+            for url in (self.db_url, self.migration_url):
+                if is_loopback_host(url.host):
+                    raise ValueError('Production database must not use a loopback host')
         if self.db_pool_mode=='direct' and self.db_url.port==6432:
             raise ValueError('Port 6432 requires PgBouncer mode')
         if self.migration_database_url:
@@ -100,4 +116,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings():
     # Production must never silently inherit a developer's local .env.
+    if os.getenv('RENDER') == 'true':
+        if os.getenv('APP_ENV', 'production') != 'production':
+            raise ValueError('Render requires APP_ENV=production')
+        return Settings(_env_file=None, app_env='production')
     return Settings(_env_file=None) if os.getenv('APP_ENV') == 'production' else Settings()

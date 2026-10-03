@@ -34,7 +34,10 @@ def migrate():
 
 if __name__ == '__main__':
     try:
+        print('Database migration: START', flush=True)
         migrate()
+        print('Database migration: OK', flush=True)
+        print('Database connection check: START', flush=True)
         check_database()
     except Exception:
         # Connection/driver exceptions may contain a URL, username or password.
